@@ -57,7 +57,7 @@ public class OrderService {
         PaymentMethod paymentMethod = paymentMethodRepository.findByPaymentMethodIdAndIsActiveTrue(request.getPaymentMethodId())
                 .orElseThrow(() -> new ResourceNotFoundException("Phương thức thanh toán không hợp lệ"));
 
-        // 4. Kiểm tra Voucher (Mã giảm giá áp dụng cho tổng đơn)
+        // 4. Kiểm tra Voucher
         Promotion appliedVoucher = null;
         if (request.getPromoCode() != null && !request.getPromoCode().trim().isEmpty()) {
             appliedVoucher = promotionRepository.findByPromoCode(request.getPromoCode())
@@ -71,37 +71,36 @@ public class OrderService {
         OrderStatus pendingStatus = statusRepository.findByStatusName("PENDING")
                 .orElseThrow(() -> new RuntimeException("Trạng thái PENDING không tồn tại"));
 
+        // ✅ LẤY PHÍ SHIP TỪ FRONTEND (Nếu null thì mặc định = 0)
+        BigDecimal shipFee = (request.getShippingFee() != null) ? request.getShippingFee() : BigDecimal.ZERO;
+
         Order order = Order.builder()
                 .user(cart.getUser())
                 .address(address)
                 .paymentMethod(paymentMethod)
                 .status(pendingStatus)
                 .promotion(appliedVoucher)
+                .shippingFee(shipFee) // ✅ LƯU PHÍ SHIP VÀO ĐƠN HÀNG
                 .build();
 
         Order savedOrder = orderRepository.save(order);
 
-        // 6. XỬ LÝ TỪNG SẢN PHẨM: Tự động áp dụng giảm giá lẻ (10%, 20%...)
+        // 6. XỬ LÝ TỪNG SẢN PHẨM: Tự động áp dụng giảm giá lẻ
         for (CartItem cartItem : cart.getItems()) {
             ProductVariant variant = cartItem.getVariant();
             BigDecimal originalPrice = variant.getPrice();
 
-            // --- LOGIC GIẢM GIÁ LINH HOẠT ---
-            // Tự động tìm khuyến mãi đang chạy cho riêng sản phẩm này
-            // (Bạn nên thêm method findActivePromotionForVariant vào PromotionRepository)
             Promotion itemPromo = promotionRepository.findActivePromotionForVariant(variant.getVariantId())
                     .orElse(null);
 
             int discountPct = 0;
             if (itemPromo != null && "PERCENT".equals(itemPromo.getDiscountType())) {
-                discountPct = itemPromo.getDiscountPercent(); // Lấy 10, 20 hoặc bất kỳ số nào từ DB
+                discountPct = itemPromo.getDiscountPercent();
             }
 
-            // Tính giá sau khi giảm (Làm tròn về 0 để khớp tiền VNĐ)
             BigDecimal finalPrice = originalPrice.multiply(BigDecimal.valueOf(100 - discountPct))
                     .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
 
-            // Lưu thông tin vào OrderItem
             OrderItem orderItem = OrderItem.builder()
                     .order(savedOrder)
                     .variant(variant)
@@ -109,18 +108,17 @@ public class OrderService {
                     .originalPrice(originalPrice)
                     .discountPercent(discountPct)
                     .finalPrice(finalPrice)
-                    .appliedPromotion(itemPromo) // Lưu vết khuyến mãi đã áp dụng
+                    .appliedPromotion(itemPromo)
                     .build();
 
             savedOrder.getItems().add(orderItem);
 
-            // Giảm tồn kho
             variant.decreaseStock(cartItem.getQuantity());
             variantRepository.save(variant);
         }
 
-        // 7. TÍNH TỔNG TIỀN ĐƠN HÀNG
-        savedOrder.calculateTotalAmount(); // Tính tiền hàng (SubTotal)
+        // 7. TÍNH TỔNG TIỀN ĐƠN HÀNG (Bao gồm tiền hàng + phí ship)
+        savedOrder.calculateTotalAmount();
 
         // 8. Áp dụng giảm giá từ Voucher (Nếu có)
         if (appliedVoucher != null) {
@@ -137,11 +135,11 @@ public class OrderService {
                     discountAmt = appliedVoucher.getMaxDiscountAmount();
                 }
             } else {
-                discountAmt = appliedVoucher.getMaxDiscountAmount(); // FIXED amount
+                discountAmt = appliedVoucher.getMaxDiscountAmount();
             }
 
             savedOrder.setDiscountAmount(discountAmt);
-            savedOrder.calculateTotalAmount(); // Tính lại tổng cuối cùng
+            savedOrder.calculateTotalAmount(); // Tính lại tổng cuối cùng (đã có ship)
 
             appliedVoucher.setUsedCount(appliedVoucher.getUsedCount() + 1);
             promotionRepository.save(appliedVoucher);
@@ -155,7 +153,6 @@ public class OrderService {
         return mapToDetailResponse(orderRepository.save(savedOrder));
     }
 
-    // Các hàm mapping giữ nguyên vì bạn đã viết rất ổn rồi
     @Transactional(readOnly = true)
     public OrderDetailResponse getOrderDetail(Integer userId, Integer orderId) {
         Order order = orderRepository.findByOrderIdAndUserUserId(orderId, userId)
@@ -165,32 +162,27 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public Page<OrderResponse> getMyOrders(Integer userId, Pageable pageable) {
-        // Gọi xuống Repository để lấy danh sách đơn hàng theo UserId và phân trang
         return orderRepository.findByUserUserId(userId, pageable)
-                .map(this::mapToResponse); // Map từ Entity Order sang DTO OrderResponse
+                .map(this::mapToResponse);
     }
 
     public void cancelOrder(Integer userId, Integer orderId) {
         Order order = orderRepository.findByOrderIdAndUserUserId(orderId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
 
-        // Check if order can be cancelled
         String currentStatus = order.getStatus().getStatusName();
         if (!"PENDING".equals(currentStatus) && !"CONFIRMED".equals(currentStatus)) {
             throw new BadRequestException("Không thể hủy đơn hàng ở trạng thái: " + currentStatus);
         }
 
-        // Get CANCELLED status
         OrderStatus cancelledStatus = statusRepository.findByStatusName("CANCELLED")
                 .orElseThrow(() -> new RuntimeException("OrderStatus CANCELLED không tồn tại"));
 
-        // Restore stock
         for (OrderItem item : order.getItems()) {
             item.getVariant().increaseStock(item.getQuantity());
             variantRepository.save(item.getVariant());
         }
 
-        // Update status
         order.updateStatus(cancelledStatus, "Đơn hàng bị hủy bởi khách hàng");
         orderRepository.save(order);
     }
@@ -203,6 +195,12 @@ public class OrderService {
                 ? order.getItems().stream().mapToInt(OrderItem::getQuantity).sum()
                 : 0;
 
+        // ✅ Lấy địa chỉ giao hàng để nhét ra ngoài List Order
+        String deliveryAddress = null;
+        if (order.getAddress() != null) {
+            deliveryAddress = order.getAddress().getFullAddress();
+        }
+
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .userId(order.getUser().getUserId())
@@ -210,6 +208,8 @@ public class OrderService {
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
                 .discountAmount(order.getDiscountAmount())
+                .shippingFee(order.getShippingFee()) // ✅ TRẢ VỀ PHÍ SHIP
+                .deliveryAddress(deliveryAddress)    // ✅ TRẢ VỀ ĐỊA CHỈ GIAO HÀNG
                 .totalAmount(order.getTotalAmount())
                 .totalItems(totalItems)
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
@@ -235,7 +235,6 @@ public class OrderService {
                 .map(this::mapToHistoryResponse)
                 .collect(Collectors.toList());
 
-        // Lấy mã giảm giá nếu đơn này có dùng
         String promoCodeUsed = null;
         if (order.getPromotion() != null) {
             promoCodeUsed = order.getPromotion().getPromoCode();
@@ -247,13 +246,14 @@ public class OrderService {
                 .userFullName(order.getUser().getFullName())
                 .userEmail(order.getUser().getEmail())
                 .userPhone(order.getUser().getPhone())
-                .deliveryAddress(order.getAddress().getFullAddress())
+                .deliveryAddress(order.getAddress() != null ? order.getAddress().getFullAddress() : "")
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
                 .discountAmount(order.getDiscountAmount())
                 .promoCode(promoCodeUsed)
+                .shippingFee(order.getShippingFee()) // ✅ TRẢ VỀ PHÍ SHIP
                 .totalAmount(order.getTotalAmount())
                 .items(itemResponses)
                 .statusHistory(historyResponses)
@@ -272,7 +272,6 @@ public class OrderService {
                     .orElse(null);
         }
 
-        // Lấy tên CTKM nếu sản phẩm này được giảm giá trực tiếp
         String promotionName = null;
         if (item.getAppliedPromotion() != null) {
             promotionName = item.getAppliedPromotion().getPromotionName();
@@ -294,7 +293,6 @@ public class OrderService {
                 .build();
     }
 
-    // Hàm bị thiếu đã được thêm vào đây
     private OrderStatusHistoryResponse mapToHistoryResponse(OrderStatusHistory history) {
         return OrderStatusHistoryResponse.builder()
                 .historyId(history.getHistoryId())
@@ -314,7 +312,6 @@ public class OrderService {
                 .map(this::mapToResponse);
     }
 
-
     @Transactional(readOnly = true)
     public OrderDetailResponse getOrderDetailAdmin(Integer orderId) {
         Order order = orderRepository.findById(orderId)
@@ -329,13 +326,11 @@ public class OrderService {
         OrderStatus newStatus = statusRepository.findById(statusId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trạng thái không tồn tại"));
 
-        // Validate status transition
         String currentStatus = order.getStatus().getStatusName();
         String targetStatus = newStatus.getStatusName();
 
         validateStatusTransition(currentStatus, targetStatus);
 
-        // Update status
         order.updateStatus(newStatus, note != null ? note : "Admin cập nhật trạng thái");
         Order updated = orderRepository.save(order);
 
@@ -343,27 +338,20 @@ public class OrderService {
     }
 
     private void validateStatusTransition(String currentStatus, String targetStatus) {
-        // Define valid transitions
         switch (currentStatus) {
             case "PENDING":
                 if (!"CONFIRMED".equals(targetStatus) && !"CANCELLED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể chuyển từ PENDING sang " + targetStatus
-                    );
+                    throw new BadRequestException("Không thể chuyển từ PENDING sang " + targetStatus);
                 }
                 break;
             case "CONFIRMED":
                 if (!"SHIPPING".equals(targetStatus) && !"CANCELLED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể chuyển từ CONFIRMED sang " + targetStatus
-                    );
+                    throw new BadRequestException("Không thể chuyển từ CONFIRMED sang " + targetStatus);
                 }
                 break;
             case "SHIPPING":
                 if (!"DELIVERED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể chuyển từ SHIPPING sang " + targetStatus + ". Chỉ có thể chuyển sang DELIVERED"
-                    );
+                    throw new BadRequestException("Không thể chuyển từ SHIPPING sang " + targetStatus + ". Chỉ có thể chuyển sang DELIVERED");
                 }
                 break;
             case "DELIVERED":

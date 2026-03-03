@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,6 +20,8 @@ public class CreateOrderRequest {
 
     private String note;
 
-    // BỔ SUNG: Trường nhận mã giảm giá từ Frontend gửi lên
     private String promoCode;
+
+    // ✅ BỔ SUNG: Nhận phí ship từ Frontend
+    private BigDecimal shippingFee;
 }

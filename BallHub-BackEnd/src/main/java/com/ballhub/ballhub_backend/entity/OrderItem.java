@@ -26,11 +26,9 @@ public class OrderItem {
     @JoinColumn(name = "VariantID", nullable = false)
     private ProductVariant variant;
 
-    // --- TRƯỜNG MỚI BỔ SUNG CHO FLASH SALE SẢN PHẨM ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "AppliedPromotionID")
-    private Promotion appliedPromotion; // Lưu CTKM áp dụng cho riêng sản phẩm này
-    // ---------------------------------------------------
+    private Promotion appliedPromotion;
 
     @Column(name = "Quantity", nullable = false)
     private Integer quantity;
@@ -39,36 +37,14 @@ public class OrderItem {
     private BigDecimal originalPrice;
 
     @Column(name = "DiscountPercent")
+    @Builder.Default
     private Integer discountPercent = 0;
 
     @Column(name = "FinalPrice", precision = 18, scale = 2, nullable = false)
     private BigDecimal finalPrice;
 
-    // Business methods
     public BigDecimal getSubtotal() {
+        if (finalPrice == null) return BigDecimal.ZERO;
         return finalPrice.multiply(BigDecimal.valueOf(quantity));
-    }
-
-    // Hàm này mình để nguyên chữ ký, nhưng logic sẽ cần bạn truyền thêm
-    // thông tin Promotion từ DTO/CartItem vào khi gọi ở OrderService
-    public static OrderItem fromCartItem(CartItem cartItem, Order order, Promotion appliedPromo, BigDecimal finalPriceCalculated) {
-        ProductVariant variant = cartItem.getVariant();
-        BigDecimal originalPrice = variant.getPrice();
-
-        // Tính % giảm giá nếu có
-        Integer discountPct = 0;
-        if (appliedPromo != null && appliedPromo.getDiscountPercent() != null) {
-            discountPct = appliedPromo.getDiscountPercent();
-        }
-
-        return OrderItem.builder()
-                .order(order)
-                .variant(variant)
-                .appliedPromotion(appliedPromo)
-                .quantity(cartItem.getQuantity())
-                .originalPrice(originalPrice)
-                .discountPercent(discountPct)
-                .finalPrice(finalPriceCalculated != null ? finalPriceCalculated : originalPrice)
-                .build();
     }
 }

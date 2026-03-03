@@ -37,10 +37,9 @@ public class Order {
     @JoinColumn(name = "StatusID")
     private OrderStatus status;
 
-    // --- CÁC TRƯỜNG MỚI BỔ SUNG CHO VOUCHER ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "PromotionID")
-    private Promotion promotion; // Mã voucher áp dụng cho đơn
+    private Promotion promotion;
 
     @Column(name = "SubTotal", precision = 18, scale = 2)
     private BigDecimal subTotal;
@@ -48,7 +47,10 @@ public class Order {
     @Column(name = "DiscountAmount", precision = 18, scale = 2)
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
-    // ------------------------------------------
+
+    @Column(name = "ShippingFee", precision = 18, scale = 2)
+    @Builder.Default
+    private BigDecimal shippingFee = BigDecimal.ZERO;
 
     @Column(name = "OrderDate", updatable = false)
     private LocalDateTime orderDate;
@@ -56,6 +58,7 @@ public class Order {
     @Column(name = "TotalAmount", precision = 18, scale = 2)
     private BigDecimal totalAmount;
 
+    // ✅ PHẢI ĐẶT TÊN LÀ items ĐỂ KHỚP VỚI OrderService VÀ OrderItemResponse
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
@@ -68,9 +71,9 @@ public class Order {
     protected void onCreate() {
         orderDate = LocalDateTime.now();
         if (discountAmount == null) discountAmount = BigDecimal.ZERO;
+        if (shippingFee == null) shippingFee = BigDecimal.ZERO;
     }
 
-    // Business methods
     public void updateStatus(OrderStatus newStatus, String note) {
         this.status = newStatus;
         OrderStatusHistory history = OrderStatusHistory.builder()
@@ -83,14 +86,23 @@ public class Order {
     }
 
     public void calculateTotalAmount() {
-        // 1. Tính tổng tiền hàng (Sau khi từng món đã được giảm lẻ 10, 20%)
-        BigDecimal sub = items.stream()
-                .map(item -> item.getFinalPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        this.subTotal = sub;
+        // ✅ Kiểm tra items để tránh lỗi NullPointerException
+        if (this.items == null || this.items.isEmpty()) {
+            this.subTotal = BigDecimal.ZERO;
+        } else {
+            this.subTotal = this.items.stream()
+                    .map(item -> {
+                        // Tránh lỗi nếu finalPrice bị null
+                        BigDecimal price = item.getFinalPrice() != null ? item.getFinalPrice() : BigDecimal.ZERO;
+                        return price.multiply(BigDecimal.valueOf(item.getQuantity()));
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
 
-        // 2. Trừ thêm Voucher giảm giá (Nếu có)
         BigDecimal discount = (this.discountAmount != null) ? this.discountAmount : BigDecimal.ZERO;
-        this.totalAmount = this.subTotal.subtract(discount);
+        BigDecimal ship = (this.shippingFee != null) ? this.shippingFee : BigDecimal.ZERO;
+
+        BigDecimal total = this.subTotal.subtract(discount).add(ship);
+        this.totalAmount = total.compareTo(BigDecimal.ZERO) > 0 ? total : BigDecimal.ZERO;
     }
 }
