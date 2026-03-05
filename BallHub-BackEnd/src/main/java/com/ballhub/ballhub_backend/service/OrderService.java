@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -381,6 +382,17 @@ public class OrderService {
             default:
                 throw new BadRequestException("Trạng thái không hợp lệ: " + currentStatus);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getNewestOrders() {
+        // Lấy 5 đơn hàng mới nhất, sắp xếp theo thời gian đặt hàng (orderDate) giảm dần (mới nhất xếp trên)
+        Pageable topFive = PageRequest.of(0, 5, org.springframework.data.domain.Sort.by("orderDate").descending());
+
+        return orderRepository.findAll(topFive)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
