@@ -1,18 +1,22 @@
 package com.ballhub.ballhub_backend.service;
 
-
-import com.ballhub.ballhub_backend.entity.User;
-import com.ballhub.ballhub_backend.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.ballhub.ballhub_backend.dto.reponse.user.UserResponse;
+import com.ballhub.ballhub_backend.entity.User;
+import com.ballhub.ballhub_backend.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -66,6 +70,20 @@ public class UserService {
         } catch (Exception e) {
             throw new RuntimeException("Lỗi khi lưu ảnh: " + e.getMessage());
         }
+    }
+
+    // 3. Lấy danh sách tất cả user
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(user -> UserResponse.builder()
+                        .userId(user.getUserId())
+                        .fullName(user.getFullName())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .avatar(user.getAvatar())
+                        .role(user.getRole())
+                        .build())
+                .collect(Collectors.toList());
     }
 
 }

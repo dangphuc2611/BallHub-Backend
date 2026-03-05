@@ -26,10 +26,10 @@ public class ProductResponse {
     // --- BỔ SUNG TRƯỜNG CHO FLASH SALE ---
     private BigDecimal minOriginalPrice; // Giá gốc thấp nhất (để hiển thị gạch ngang)
     private BigDecimal maxOriginalPrice; // Giá gốc cao nhất
-    private Integer discountPercent;     // Phần trăm giảm giá (để hiện nhãn -10%)
+    private Integer discountPercent; // Phần trăm giảm giá (để hiện nhãn -10%)
     // -------------------------------------
 
-    private BigDecimal minPrice;         // Giá bán thực tế (đã trừ Flash Sale)
+    private BigDecimal minPrice; // Giá bán thực tế (đã trừ Flash Sale)
     private BigDecimal maxPrice;
     private Boolean status;
     private LocalDateTime createdAt;

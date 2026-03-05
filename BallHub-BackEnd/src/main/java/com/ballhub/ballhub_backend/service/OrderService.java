@@ -1,25 +1,40 @@
 package com.ballhub.ballhub_backend.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.ballhub.ballhub_backend.dto.reponse.order.OrderDetailResponse;
 import com.ballhub.ballhub_backend.dto.reponse.order.OrderItemResponse;
 import com.ballhub.ballhub_backend.dto.reponse.order.OrderResponse;
 import com.ballhub.ballhub_backend.dto.reponse.order.OrderStatusHistoryResponse;
 import com.ballhub.ballhub_backend.dto.request.order.CreateOrderRequest;
-import com.ballhub.ballhub_backend.entity.*;
+import com.ballhub.ballhub_backend.entity.Cart;
+import com.ballhub.ballhub_backend.entity.CartItem;
+import com.ballhub.ballhub_backend.entity.Order;
+import com.ballhub.ballhub_backend.entity.OrderItem;
+import com.ballhub.ballhub_backend.entity.OrderStatus;
+import com.ballhub.ballhub_backend.entity.OrderStatusHistory;
+import com.ballhub.ballhub_backend.entity.PaymentMethod;
+import com.ballhub.ballhub_backend.entity.ProductVariant;
+import com.ballhub.ballhub_backend.entity.Promotion;
+import com.ballhub.ballhub_backend.entity.UserAddress;
 import com.ballhub.ballhub_backend.exception.BadRequestException;
 import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;
-import com.ballhub.ballhub_backend.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.ballhub.ballhub_backend.repository.CartRepository;
+import com.ballhub.ballhub_backend.repository.OrderRepository;
+import com.ballhub.ballhub_backend.repository.OrderStatusRepository;
+import com.ballhub.ballhub_backend.repository.PaymentMethodRepository;
+import com.ballhub.ballhub_backend.repository.ProductVariantRepository;
+import com.ballhub.ballhub_backend.repository.PromotionRepository;
+import com.ballhub.ballhub_backend.repository.UserAddressRepository;
 
 @Service
 @Transactional
@@ -54,7 +69,8 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tồn tại"));
 
         // 3. Kiểm tra phương thức thanh toán
-        PaymentMethod paymentMethod = paymentMethodRepository.findByPaymentMethodIdAndIsActiveTrue(request.getPaymentMethodId())
+        PaymentMethod paymentMethod = paymentMethodRepository
+                .findByPaymentMethodIdAndIsActiveTrue(request.getPaymentMethodId())
                 .orElseThrow(() -> new ResourceNotFoundException("Phương thức thanh toán không hợp lệ"));
 
         // 4. Kiểm tra Voucher
@@ -131,7 +147,8 @@ public class OrderService {
             if ("PERCENT".equals(appliedVoucher.getDiscountType())) {
                 discountAmt = subTotal.multiply(BigDecimal.valueOf(appliedVoucher.getDiscountPercent()))
                         .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-                if (appliedVoucher.getMaxDiscountAmount() != null && discountAmt.compareTo(appliedVoucher.getMaxDiscountAmount()) > 0) {
+                if (appliedVoucher.getMaxDiscountAmount() != null
+                        && discountAmt.compareTo(appliedVoucher.getMaxDiscountAmount()) > 0) {
                     discountAmt = appliedVoucher.getMaxDiscountAmount();
                 }
             } else {
@@ -209,7 +226,7 @@ public class OrderService {
                 .subTotal(order.getSubTotal())
                 .discountAmount(order.getDiscountAmount())
                 .shippingFee(order.getShippingFee()) // ✅ TRẢ VỀ PHÍ SHIP
-                .deliveryAddress(deliveryAddress)    // ✅ TRẢ VỀ ĐỊA CHỈ GIAO HÀNG
+                .deliveryAddress(deliveryAddress) // ✅ TRẢ VỀ ĐỊA CHỈ GIAO HÀNG
                 .totalAmount(order.getTotalAmount())
                 .totalItems(totalItems)
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
@@ -341,17 +358,20 @@ public class OrderService {
         switch (currentStatus) {
             case "PENDING":
                 if (!"CONFIRMED".equals(targetStatus) && !"CANCELLED".equals(targetStatus)) {
-                    throw new BadRequestException("Không thể chuyển từ PENDING sang " + targetStatus);
+                    throw new BadRequestException(
+                            "Không thể chuyển từ PENDING sang " + targetStatus);
                 }
                 break;
             case "CONFIRMED":
                 if (!"SHIPPING".equals(targetStatus) && !"CANCELLED".equals(targetStatus)) {
-                    throw new BadRequestException("Không thể chuyển từ CONFIRMED sang " + targetStatus);
+                    throw new BadRequestException(
+                            "Không thể chuyển từ CONFIRMED sang " + targetStatus);
                 }
                 break;
             case "SHIPPING":
                 if (!"DELIVERED".equals(targetStatus)) {
-                    throw new BadRequestException("Không thể chuyển từ SHIPPING sang " + targetStatus + ". Chỉ có thể chuyển sang DELIVERED");
+                    throw new BadRequestException(
+                            "Không thể chuyển từ SHIPPING sang " + targetStatus + ". Chỉ có thể chuyển sang DELIVERED");
                 }
                 break;
             case "DELIVERED":

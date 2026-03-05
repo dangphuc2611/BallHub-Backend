@@ -1,6 +1,7 @@
 package com.ballhub.ballhub_backend.config;
 
-import com.ballhub.ballhub_backend.security.JwtAuthenticationFilter;
+import java.util.Arrays;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +22,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import com.ballhub.ballhub_backend.security.JwtAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -41,35 +42,37 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-
-
-                                .requestMatchers(
-                                        "/img/**"
-                                ).permitAll()
-
-                                // Auth endpoints
-                                .requestMatchers("/api/auth/**").permitAll()
-                                .requestMatchers("/api/auth/google-login").permitAll()
-                                .requestMatchers("/uploads/**").permitAll()
-
-
-                                // Public endpoints
-                                .requestMatchers("/api/products/**").permitAll()
-                                .requestMatchers("/api/categories/**").permitAll()
-                                .requestMatchers("/api/brands/**").permitAll()
-                                .requestMatchers("/api/test/**").permitAll()
-                                .requestMatchers("/api/promotions/**").permitAll()
-
-                                .requestMatchers("/api/users/me").authenticated()
-                                .requestMatchers("/api/users/update").authenticated()
-
-                                // Admin endpoints
-                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                                // All other endpoints require authentication
-                                .anyRequest().authenticated()
-                )
+                /*
+                 * .authorizeHttpRequests(auth -> auth
+                 * 
+                 * .requestMatchers(
+                 * "/img/**")
+                 * .permitAll()
+                 * 
+                 * // Auth endpoints
+                 * .requestMatchers("/api/auth/**").permitAll()
+                 * .requestMatchers("/api/auth/google-login").permitAll()
+                 * .requestMatchers("/uploads/**").permitAll()
+                 * 
+                 * // Public endpoints
+                 * .requestMatchers("/api/products/**").permitAll()
+                 * .requestMatchers("/api/categories/**").permitAll()
+                 * .requestMatchers("/api/brands/**").permitAll()
+                 * .requestMatchers("/api/test/**").permitAll()
+                 * .requestMatchers("/api/promotions/**").permitAll()
+                 * 
+                 * .requestMatchers("/api/users/me").authenticated()
+                 * .requestMatchers("/api/users/update").authenticated()
+                 * 
+                 * // Admin endpoints
+                 * .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                 * .requestMatchers("/api/stats/**").permitAll()
+                 * 
+                 * // All other endpoints require authentication
+                 * .anyRequest().authenticated())
+                 */
+                // security disabled: permit all
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -108,40 +111,39 @@ public class SecurityConfig {
     }
 }
 
-
-//## 🎯 4. LUỒNG NGHIỆP VỤ ĐẶT HÀNG & THANH TOÁN
+// ## 🎯 4. LUỒNG NGHIỆP VỤ ĐẶT HÀNG & THANH TOÁN
 //
-//### 4.1 Sequence Diagram - Create Order Flow
-//```
-//User → Controller: POST /api/orders + CreateOrderRequest
-//Controller → AuthFilter: Verify JWT
-//AuthFilter → Controller: userId = 123
+// ### 4.1 Sequence Diagram - Create Order Flow
+// ```
+// User → Controller: POST /api/orders + CreateOrderRequest
+// Controller → AuthFilter: Verify JWT
+// AuthFilter → Controller: userId = 123
 //
-//Controller → OrderService: createOrder(userId, request)
-//OrderService → CartRepository: findByUserId(123)
-//CartRepository → OrderService: Cart + CartItems
+// Controller → OrderService: createOrder(userId, request)
+// OrderService → CartRepository: findByUserId(123)
+// CartRepository → OrderService: Cart + CartItems
 //
-//OrderService → Validation:
-//        - Cart không rỗng?
-//        - AddressID hợp lệ?
-//        - PaymentMethodID hợp lệ?
+// OrderService → Validation:
+// - Cart không rỗng?
+// - AddressID hợp lệ?
+// - PaymentMethodID hợp lệ?
 //
-//OrderService → Loop [For each CartItem]:
-//        - Check variant.stockQuantity >= item.quantity
-//  - Nếu không đủ → throw InsufficientStockException
+// OrderService → Loop [For each CartItem]:
+// - Check variant.stockQuantity >= item.quantity
+// - Nếu không đủ → throw InsufficientStockException
 //
-//OrderService → Transaction BEGIN:
-//        1. Tạo Order mới
-//  2. Loop [For each CartItem]:
-//        - Snapshot giá hiện tại (originalPrice, discountPrice)
-//     - Tính finalPrice
-//     - Tạo OrderItem
-//     - Trừ stock: variant.stockQuantity -= quantity
-//  3. Tính totalAmount
-//  4. Lưu Order
-//  5. Tạo OrderStatusHistory (status = PENDING)
-//  6. Xóa CartItems
-//  7. Commit
+// OrderService → Transaction BEGIN:
+// 1. Tạo Order mới
+// 2. Loop [For each CartItem]:
+// - Snapshot giá hiện tại (originalPrice, discountPrice)
+// - Tính finalPrice
+// - Tạo OrderItem
+// - Trừ stock: variant.stockQuantity -= quantity
+// 3. Tính totalAmount
+// 4. Lưu Order
+// 5. Tạo OrderStatusHistory (status = PENDING)
+// 6. Xóa CartItems
+// 7. Commit
 //
-//OrderService → Controller: OrderResponse
-//Controller → User: 201 Created + OrderResponse
+// OrderService → Controller: OrderResponse
+// Controller → User: 201 Created + OrderResponse

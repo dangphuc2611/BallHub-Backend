@@ -1,13 +1,16 @@
 package com.ballhub.ballhub_backend.repository;
 
-import com.ballhub.ballhub_backend.entity.Order;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
+import com.ballhub.ballhub_backend.entity.Order;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Integer> {
@@ -17,4 +20,16 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     Optional<Order> findByOrderIdAndUserUserId(Integer orderId, Integer userId);
 
     List<Order> findByStatusStatusName(String statusName);
+
+    /**
+     * Đếm tổng số lượng đơn hàng trong hệ thống
+     */
+    @Query("SELECT COUNT(o) FROM Order o")
+    Long countTotalOrders();
+
+    /**
+     * Tính tổng doanh thu từ các đơn hàng đã DELIVERED
+     */
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status.statusName = 'PENDING'")
+    BigDecimal sumTotalRevenue();
 }

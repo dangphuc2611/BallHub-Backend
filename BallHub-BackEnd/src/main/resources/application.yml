@@ -6,7 +6,7 @@ spring:
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=BallHub;encrypt=true;trustServerCertificate=true
     username: sa
-    password: 1234
+    password: Password@1
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   # JPA Configuration
@@ -33,8 +33,8 @@ spring:
 # JWT Configuration
 jwt:
   secret: ballhub-secret-key-2024-this-is-a-very-long-secret-key-for-jwt-token-generation
-  access-token-expiration: 3600000      # 15 minutes (in milliseconds)
-  refresh-token-expiration: 604800000  # 7 days (in milliseconds)
+  access-token-expiration: 3600000 # 15 minutes (in milliseconds)
+  refresh-token-expiration: 604800000 # 7 days (in milliseconds)
 
 # Server Configuration
 server:
