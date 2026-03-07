@@ -42,35 +42,35 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                /*
-                 * .authorizeHttpRequests(auth -> auth
-                 * 
-                 * .requestMatchers(
-                 * "/img/**")
-                 * .permitAll()
-                 * 
-                 * // Auth endpoints
-                 * .requestMatchers("/api/auth/**").permitAll()
-                 * .requestMatchers("/api/auth/google-login").permitAll()
-                 * .requestMatchers("/uploads/**").permitAll()
-                 * 
-                 * // Public endpoints
-                 * .requestMatchers("/api/products/**").permitAll()
-                 * .requestMatchers("/api/categories/**").permitAll()
-                 * .requestMatchers("/api/brands/**").permitAll()
-                 * .requestMatchers("/api/test/**").permitAll()
-                 * .requestMatchers("/api/promotions/**").permitAll()
-                 * 
-                 * .requestMatchers("/api/users/me").authenticated()
-                 * .requestMatchers("/api/users/update").authenticated()
-                 * 
-                 * // Admin endpoints
-                 * .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                 * .requestMatchers("/api/stats/**").permitAll()
-                 * 
-                 * // All other endpoints require authentication
-                 * .anyRequest().authenticated())
-                 */
+
+                // .authorizeHttpRequests(auth -> auth
+
+                // .requestMatchers(
+                // "/img/**")
+                // .permitAll()
+
+                // // Auth endpoints
+                // .requestMatchers("/api/auth/**").permitAll()
+                // .requestMatchers("/api/auth/google-login").permitAll()
+                // .requestMatchers("/uploads/**").permitAll()
+
+                // // Public endpoints
+                // .requestMatchers("/api/products/**").permitAll()
+                // .requestMatchers("/api/categories/**").permitAll()
+                // .requestMatchers("/api/brands/**").permitAll()
+                // .requestMatchers("/api/test/**").permitAll()
+                // .requestMatchers("/api/promotions/**").permitAll()
+
+                // .requestMatchers("/api/users/me").authenticated()
+                // .requestMatchers("/api/users/update").authenticated()
+
+                // // Admin endpoints
+                // .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // .requestMatchers("/api/stats/**").permitAll()
+
+                // // All other endpoints require authentication
+                // .anyRequest().authenticated())
+
                 // security disabled: permit all
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .authenticationProvider(authenticationProvider())

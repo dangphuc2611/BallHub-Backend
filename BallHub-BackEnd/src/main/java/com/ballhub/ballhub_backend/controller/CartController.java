@@ -62,6 +62,10 @@ public class CartController {
     }
 
     private Integer getUserId(Authentication authentication) {
+        if (authentication == null || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new com.ballhub.ballhub_backend.exception.UnauthorizedException(
+                    "Vui lòng đăng nhập để thực hiện chức năng này");
+        }
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         return userDetails.getUserId();
     }

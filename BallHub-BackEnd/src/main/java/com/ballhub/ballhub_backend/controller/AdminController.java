@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
 import com.ballhub.ballhub_backend.dto.reponse.admin.DashboardStatsResponse;
-import com.ballhub.ballhub_backend.dto.reponse.order.OrderResponse;
 import com.ballhub.ballhub_backend.dto.reponse.user.UserResponse;
 import com.ballhub.ballhub_backend.service.AdminService;
 import com.ballhub.ballhub_backend.service.OrderService;
@@ -71,10 +70,10 @@ public class AdminController {
     return ResponseEntity.ok(ApiResponse.success("Lấy thống kê dashboard thành công", stats));
   }
 
-  @GetMapping("/newest-order")
-  public List<OrderResponse> getNewestOrder() {
-    return orderService.getNewestOrders();
-  }
+  // @GetMapping("/newest-order")
+  // public List<OrderResponse> getNewestOrder() {
+  // return orderService.getNewestOrders();
+  // }
 
   /**
    * API lấy danh sách tất cả user

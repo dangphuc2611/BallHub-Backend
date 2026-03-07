@@ -30,6 +30,6 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     /**
      * Tính tổng doanh thu từ các đơn hàng đã DELIVERED
      */
-    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status.statusName = 'PENDING'")
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status.statusName = 'DELIVERED'")
     BigDecimal sumTotalRevenue();
 }

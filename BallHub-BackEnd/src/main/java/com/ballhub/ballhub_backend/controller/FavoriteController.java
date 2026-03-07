@@ -1,10 +1,5 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.ProductResponse;
-import com.ballhub.ballhub_backend.security.CustomUserDetails;
-import com.ballhub.ballhub_backend.service.FavoriteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -12,7 +7,18 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
+import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
+import com.ballhub.ballhub_backend.dto.reponse.product.ProductResponse;
+import com.ballhub.ballhub_backend.security.CustomUserDetails;
+import com.ballhub.ballhub_backend.service.FavoriteService;
 
 @RestController
 @RequestMapping("/api/favorites")
@@ -48,7 +54,8 @@ public class FavoriteController {
         return ResponseEntity.ok(ApiResponse.success(message, isFavorited));
     }
 
-    // 3. Kiểm tra xem 1 sản phẩm đã được thả tim chưa (Dùng khi load trang chi tiết sản phẩm)
+    // 3. Kiểm tra xem 1 sản phẩm đã được thả tim chưa (Dùng khi load trang chi tiết
+    // sản phẩm)
     @GetMapping("/{productId}/check")
     public ResponseEntity<ApiResponse<Boolean>> checkFavorite(
             @PathVariable Integer productId,
@@ -60,6 +67,10 @@ public class FavoriteController {
     }
 
     private Integer getUserId(Authentication authentication) {
+        if (authentication == null || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new com.ballhub.ballhub_backend.exception.UnauthorizedException(
+                    "Vui lòng đăng nhập để thực hiện chức năng này");
+        }
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         return userDetails.getUserId();
     }
