@@ -157,6 +157,30 @@ public class ProductService {
                 productRepository.save(product);
         }
 
+        public void addImagesToProduct(Integer productId, List<String> imageUrls, Boolean setFirstAsMain) {
+                Product product = productRepository.findById(productId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+
+                // Nếu setFirstAsMain = true, reset ảnh chính cũ
+                if (Boolean.TRUE.equals(setFirstAsMain)) {
+                        List<ProductImage> existing = imageRepository.findByProductProductId(productId);
+                        existing.forEach(img -> img.setIsMain(false));
+                        imageRepository.saveAll(existing);
+                }
+
+                boolean firstImage = Boolean.TRUE.equals(setFirstAsMain);
+                for (int i = 0; i < imageUrls.size(); i++) {
+                        String url = imageUrls.get(i);
+                        boolean isMain = firstImage && (i == 0);
+                        ProductImage image = ProductImage.builder()
+                                        .product(product)
+                                        .imageUrl(url)
+                                        .isMain(isMain)
+                                        .build();
+                        imageRepository.save(image);
+                }
+        }
+
         private void createVariant(Product product, CreateVariantRequest request) {
                 Size size = sizeRepository.findById(request.getSizeId())
                                 .orElseThrow(() -> new ResourceNotFoundException("Size không tồn tại"));
