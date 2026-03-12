@@ -386,10 +386,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getNewestOrders() {
-        // Lấy 5 đơn hàng mới nhất, sắp xếp theo thời gian đặt hàng (orderDate) giảm dần (mới nhất xếp trên)
-        Pageable topFive = PageRequest.of(0, 5, org.springframework.data.domain.Sort.by("orderDate").descending());
-
-        return orderRepository.findAll(topFive)
+        return orderRepository.findAll(org.springframework.data.domain.Sort.by("orderDate").descending())
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

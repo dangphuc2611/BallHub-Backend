@@ -56,10 +56,30 @@ public class CartService {
         ProductVariant variant = variantRepository.findByVariantIdAndStatusTrue(request.getVariantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
 
-        if (!variant.hasStock(request.getQuantity())) {
-            throw new BadRequestException("Không đủ tồn kho. Còn lại: " + variant.getStockQuantity());
+        // ✅ BƯỚC 1: TÌM XEM TRONG GIỎ HÀNG ĐÃ CÓ SẴN SẢN PHẨM NÀY CHƯA
+        int currentQuantityInCart = 0;
+        if (cart.getItems() != null) {
+            for (CartItem item : cart.getItems()) {
+                if (item.getVariant().getVariantId().equals(variant.getVariantId())) {
+                    currentQuantityInCart = item.getQuantity();
+                    break;
+                }
+            }
         }
 
+        // ✅ BƯỚC 2: TÍNH TỔNG SỐ LƯỢNG (Đã có trong giỏ + Muốn thêm mới)
+        int totalRequestedQuantity = currentQuantityInCart + request.getQuantity();
+
+        // ✅ BƯỚC 3: SO SÁNH TỔNG NÀY VỚI TỒN KHO THỰC TẾ
+        if (totalRequestedQuantity > variant.getStockQuantity()) {
+            if (currentQuantityInCart > 0) {
+                throw new BadRequestException("Bạn đã có " + currentQuantityInCart + " sản phẩm này trong giỏ. Chỉ có thể thêm tối đa " + (variant.getStockQuantity() - currentQuantityInCart) + " sản phẩm nữa!");
+            } else {
+                throw new BadRequestException("Không đủ tồn kho. Kho chỉ còn: " + variant.getStockQuantity());
+            }
+        }
+
+        // Nếu qua được vòng kiểm tra trên thì mới cho phép add vào Entity
         cart.addItem(variant, request.getQuantity());
         Cart savedCart = cartRepository.save(cart);
 
