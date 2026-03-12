@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class OrderResponse {
     private Integer orderId;
     private Integer userId;
+    private String userFullName;
     private String statusName;
     private LocalDateTime orderDate;
     private BigDecimal subTotal;

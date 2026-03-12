@@ -222,6 +222,7 @@ public class OrderService {
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .userId(order.getUser().getUserId())
+                .userFullName(order.getUser().getFullName())
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
