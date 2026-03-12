@@ -213,11 +213,11 @@ public class OrderService {
                 ? order.getItems().stream().mapToInt(OrderItem::getQuantity).sum()
                 : 0;
 
-        // ✅ Lấy địa chỉ giao hàng để nhét ra ngoài List Order
-        String deliveryAddress = null;
-        if (order.getAddress() != null) {
-            deliveryAddress = order.getAddress().getFullAddress();
-        }
+        String deliveryAddress = (order.getAddress() != null) ? order.getAddress().getFullAddress() : null;
+
+        BigDecimal calculatedTotal = order.getSubTotal()
+                .subtract(order.getDiscountAmount())
+                .add(order.getShippingFee());
 
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
@@ -226,9 +226,9 @@ public class OrderService {
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
                 .discountAmount(order.getDiscountAmount())
-                .shippingFee(order.getShippingFee()) // ✅ TRẢ VỀ PHÍ SHIP
-                .deliveryAddress(deliveryAddress) // ✅ TRẢ VỀ ĐỊA CHỈ GIAO HÀNG
-                .totalAmount(order.getTotalAmount())
+                .shippingFee(order.getShippingFee())
+                .deliveryAddress(deliveryAddress)
+                .totalAmount(calculatedTotal)
                 .totalItems(totalItems)
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .build();
