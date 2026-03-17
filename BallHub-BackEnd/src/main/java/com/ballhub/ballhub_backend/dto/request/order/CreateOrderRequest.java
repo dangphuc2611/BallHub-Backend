@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class CreateOrderRequest {
 
-    @NotNull(message = "Address ID không được để trống")
+    // ✅ XÓA @NotNull: Vì đơn hàng tại quầy (POS) sẽ KHÔNG CÓ địa chỉ
     private Integer addressId;
 
     @NotNull(message = "Payment method ID không được để trống")
@@ -22,6 +22,8 @@ public class CreateOrderRequest {
 
     private String promoCode;
 
-    // ✅ BỔ SUNG: Nhận phí ship từ Frontend
     private BigDecimal shippingFee;
+
+    // ✅ BỔ SUNG: Cờ đánh dấu đây là đơn hàng bán tại quầy
+    private Boolean isPos;
 }

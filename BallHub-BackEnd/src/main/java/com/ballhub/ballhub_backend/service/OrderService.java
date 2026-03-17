@@ -65,9 +65,15 @@ public class OrderService {
             throw new BadRequestException("Giỏ hàng trống");
         }
 
-        // 2. Kiểm tra địa chỉ
-        UserAddress address = addressRepository.findById(request.getAddressId())
-                .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tồn tại"));
+        // 2. Kiểm tra địa chỉ (✅ BỎ QUA NẾU LÀ ĐƠN BÁN TẠI QUẦY - POS)
+        UserAddress address = null;
+        if (request.getIsPos() == null || !request.getIsPos()) {
+            if (request.getAddressId() == null) {
+                throw new BadRequestException("Địa chỉ không được để trống với đơn hàng giao đi");
+            }
+            address = addressRepository.findById(request.getAddressId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tồn tại"));
+        }
 
         // 3. Kiểm tra phương thức thanh toán
         PaymentMethod paymentMethod = paymentMethodRepository
@@ -84,20 +90,27 @@ public class OrderService {
             }
         }
 
-        // 5. Khởi tạo đơn hàng trạng thái PENDING
-        OrderStatus pendingStatus = statusRepository.findByStatusName("PENDING")
-                .orElseThrow(() -> new RuntimeException("Trạng thái PENDING không tồn tại"));
+        // 5. ✅ KHỞI TẠO TRẠNG THÁI & PHÍ SHIP DỰA VÀO LOẠI ĐƠN HÀNG (POS vs ONLINE)
+        OrderStatus finalStatus;
+        BigDecimal shipFee;
 
-        // ✅ LẤY PHÍ SHIP TỪ FRONTEND (Nếu null thì mặc định = 0)
-        BigDecimal shipFee = (request.getShippingFee() != null) ? request.getShippingFee() : BigDecimal.ZERO;
+        if (Boolean.TRUE.equals(request.getIsPos())) {
+            shipFee = BigDecimal.ZERO;
+            finalStatus = statusRepository.findByStatusName("DELIVERED")
+                    .orElseThrow(() -> new RuntimeException("Trạng thái DELIVERED không tồn tại"));
+        } else {
+            shipFee = (request.getShippingFee() != null) ? request.getShippingFee() : BigDecimal.ZERO;
+            finalStatus = statusRepository.findByStatusName("PENDING")
+                    .orElseThrow(() -> new RuntimeException("Trạng thái PENDING không tồn tại"));
+        }
 
         Order order = Order.builder()
                 .user(cart.getUser())
-                .address(address)
+                .address(address) // Nếu là POS thì sẽ lưu là null
                 .paymentMethod(paymentMethod)
-                .status(pendingStatus)
+                .status(finalStatus)
                 .promotion(appliedVoucher)
-                .shippingFee(shipFee) // ✅ LƯU PHÍ SHIP VÀO ĐƠN HÀNG
+                .shippingFee(shipFee)
                 .build();
 
         Order savedOrder = orderRepository.save(order);
@@ -164,7 +177,11 @@ public class OrderService {
         }
 
         // 9. Lưu lịch sử và xóa giỏ hàng
-        savedOrder.updateStatus(pendingStatus, "Khách hàng đặt đơn thành công");
+        String historyNote = Boolean.TRUE.equals(request.getIsPos())
+                ? "Thanh toán thành công tại quầy (POS)"
+                : "Khách hàng đặt đơn thành công";
+
+        savedOrder.updateStatus(finalStatus, historyNote);
         cart.clearCart();
         cartRepository.save(cart);
 
@@ -272,7 +289,7 @@ public class OrderService {
                 .subTotal(order.getSubTotal())
                 .discountAmount(order.getDiscountAmount())
                 .promoCode(promoCodeUsed)
-                .shippingFee(order.getShippingFee()) // ✅ TRẢ VỀ PHÍ SHIP
+                .shippingFee(order.getShippingFee())
                 .totalAmount(order.getTotalAmount())
                 .items(itemResponses)
                 .statusHistory(historyResponses)
