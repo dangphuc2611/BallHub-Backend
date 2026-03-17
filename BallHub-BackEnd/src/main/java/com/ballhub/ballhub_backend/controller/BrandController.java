@@ -1,12 +1,17 @@
 package com.ballhub.ballhub_backend.controller;
 
 import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
+import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
 import com.ballhub.ballhub_backend.dto.reponse.brand.BrandResponse;
 import com.ballhub.ballhub_backend.dto.request.brand.CreateBrandRequest;
 import com.ballhub.ballhub_backend.dto.request.brand.UpdateBrandRequest;
 import com.ballhub.ballhub_backend.service.BrandService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,6 +37,17 @@ public class BrandController {
     public ResponseEntity<ApiResponse<BrandResponse>> getBrandById(@PathVariable Integer id) {
         BrandResponse brand = brandService.getBrandById(id);
         return ResponseEntity.ok(ApiResponse.success(brand));
+    }
+
+    // ADMIN - Get all brands paginated
+    @GetMapping("/admin/brands")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<BrandResponse>>> getBrandsAdmin(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("brandId").descending());
+        Page<BrandResponse> brands = brandService.getAllBrandsAdmin(pageable);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.of(brands)));
     }
 
     // ADMIN - Create brand

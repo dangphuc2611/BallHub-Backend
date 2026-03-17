@@ -8,6 +8,8 @@ import com.ballhub.ballhub_backend.exception.BadRequestException;
 import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;
 import com.ballhub.ballhub_backend.repository.BrandRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -25,6 +27,12 @@ public class BrandService {
         return brandRepository.findByStatusTrue().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BrandResponse> getAllBrandsAdmin(Pageable pageable) {
+        return brandRepository.findAll(pageable)
+                .map(this::mapToResponse);
     }
 
     @Transactional(readOnly = true)
@@ -77,9 +85,12 @@ public class BrandService {
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Thương hiệu không tồn tại"));
 
-        // Soft delete
-        brand.setStatus(false);
-        brandRepository.save(brand);
+        // Check if brand is used by any products
+        if (!brand.getProducts().isEmpty()) {
+            throw new BadRequestException("Không thể xóa thương hiệu này vì đang có sản phẩm thuộc thương hiệu này");
+        }
+
+        brandRepository.delete(brand);
     }
 
     private BrandResponse mapToResponse(Brand brand) {

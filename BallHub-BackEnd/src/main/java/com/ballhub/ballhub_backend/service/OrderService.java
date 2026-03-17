@@ -350,6 +350,14 @@ public class OrderService {
 
         validateStatusTransition(currentStatus, targetStatus);
 
+        // Restore stock when order is cancelled or returned
+        if ("CANCELLED".equals(targetStatus) || "RETURNED".equals(targetStatus)) {
+            for (OrderItem item : order.getItems()) {
+                item.getVariant().increaseStock(item.getQuantity());
+                variantRepository.save(item.getVariant());
+            }
+        }
+
         order.updateStatus(newStatus, note != null ? note : "Admin cập nhật trạng thái");
         Order updated = orderRepository.save(order);
 
@@ -371,13 +379,20 @@ public class OrderService {
                 }
                 break;
             case "SHIPPING":
-                if (!"DELIVERED".equals(targetStatus)) {
+                if (!"DELIVERED".equals(targetStatus) && !"RETURNED".equals(targetStatus)) {
                     throw new BadRequestException(
-                            "Không thể chuyển từ SHIPPING sang " + targetStatus + ". Chỉ có thể chuyển sang DELIVERED");
+                            "Không thể chuyển từ SHIPPING sang " + targetStatus
+                                    + ". Chỉ có thể chuyển sang DELIVERED hoặc RETURNED");
                 }
                 break;
             case "DELIVERED":
-                throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã giao");
+                if (!"RETURNED".equals(targetStatus)) {
+                    throw new BadRequestException(
+                            "Không thể thay đổi trạng thái đơn hàng đã giao, ngoại trừ hoàn trả (RETURNED)");
+                }
+                break;
+            case "RETURNED":
+                throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã hoàn trả");
             case "CANCELLED":
                 throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã hủy");
             default:
