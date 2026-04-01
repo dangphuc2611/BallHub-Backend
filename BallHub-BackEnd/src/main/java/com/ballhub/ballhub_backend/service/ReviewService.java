@@ -1,8 +1,8 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.review.ProductReviewsResponse;
-import com.ballhub.ballhub_backend.dto.reponse.review.ReviewAdminResponse;
-import com.ballhub.ballhub_backend.dto.reponse.review.ReviewItem;
+import com.ballhub.ballhub_backend.dto.response.review.ProductReviewsResponse;
+import com.ballhub.ballhub_backend.dto.response.review.ReviewAdminResponse;
+import com.ballhub.ballhub_backend.dto.response.review.ReviewItem;
 import com.ballhub.ballhub_backend.entity.Review;
 import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;
 import com.ballhub.ballhub_backend.repository.ProductRepository;

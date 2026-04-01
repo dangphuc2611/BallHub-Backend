@@ -1,6 +1,6 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.category.CategoryResponse;
+import com.ballhub.ballhub_backend.dto.response.category.CategoryResponse;
 import com.ballhub.ballhub_backend.dto.request.category.CreateCategoryRequest;
 import com.ballhub.ballhub_backend.dto.request.category.UpdateCategoryRequest;
 import com.ballhub.ballhub_backend.entity.Category;

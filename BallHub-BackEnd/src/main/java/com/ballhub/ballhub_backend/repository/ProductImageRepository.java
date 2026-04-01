@@ -14,7 +14,7 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, Inte
 
     List<ProductImage> findByVariantVariantId(Integer variantId);
 
-    Optional<ProductImage> findByProductProductIdAndIsMainTrue(Integer productId);
+    Optional<ProductImage> findByProduct_ProductIdAndIsMainTrue(Integer productId);
 
     void deleteByProductProductId(Integer productId);
 }

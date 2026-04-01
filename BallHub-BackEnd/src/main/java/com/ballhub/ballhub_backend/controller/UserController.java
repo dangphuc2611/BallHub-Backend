@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.user.UserResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.user.UserResponse;
 import com.ballhub.ballhub_backend.dto.request.user.UpdateProfileRequest;
 import com.ballhub.ballhub_backend.entity.User;
 import com.ballhub.ballhub_backend.service.UserService;

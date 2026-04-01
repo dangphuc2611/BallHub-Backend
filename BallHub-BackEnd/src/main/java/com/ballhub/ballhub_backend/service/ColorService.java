@@ -1,6 +1,6 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.product.ColorResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ColorResponse;
 import com.ballhub.ballhub_backend.dto.request.product.ColorRequest;
 import com.ballhub.ballhub_backend.entity.Color;
 import com.ballhub.ballhub_backend.exception.BadRequestException;

@@ -2,16 +2,18 @@ package com.ballhub.ballhub_backend.controller;
 
 import java.util.List;
 
+import com.ballhub.ballhub_backend.dto.request.product.PosVariantFilterRequest;
+import com.ballhub.ballhub_backend.dto.response.admin.PosVariantResponse;
+import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.service.ProductVariantService;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.admin.DashboardStatsResponse;
-import com.ballhub.ballhub_backend.dto.reponse.user.UserResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.admin.DashboardStatsResponse;
+import com.ballhub.ballhub_backend.dto.response.user.UserResponse;
 import com.ballhub.ballhub_backend.service.AdminService;
 import com.ballhub.ballhub_backend.service.OrderService;
 import com.ballhub.ballhub_backend.service.UserService;
@@ -31,11 +33,12 @@ public class AdminController {
   private final AdminService adminService;
   private final OrderService orderService;
   private final UserService userService;
+  private final ProductVariantService productVariantService;
 
   /**
    * API thống kê tổng hợp
    * GET /api/admin/stats/dashboard?topProductsLimit=10
-   * 
+   *
    * Response:
    * {
    * "code": 200,
@@ -78,7 +81,7 @@ public class AdminController {
   /**
    * API lấy danh sách tất cả user
    * GET /api/admin/stats/users
-   * 
+   *
    * Response:
    * {
    * "success": true,
@@ -105,5 +108,18 @@ public class AdminController {
       return ResponseEntity.status(500)
           .body(new ApiResponse<>(false, "Lỗi khi lấy danh sách user: " + e.getMessage(), null));
     }
+  }
+
+  // API lấy danh sách biến thể sản phẩm cho màn hình POS (Bán hàng tại quầy)
+  @GetMapping("/pos/variants")
+  public ResponseEntity<ApiResponse<PageResponse<PosVariantResponse>>> getVariantsForPos(
+          @ModelAttribute PosVariantFilterRequest filterRequest,
+          @RequestParam(defaultValue = "0") int page,
+          @RequestParam(defaultValue = "10") int size) {
+
+    Pageable pageable = PageRequest.of(page, size);
+    PageResponse<PosVariantResponse> result = productVariantService.getVariantsForPos(filterRequest, pageable);
+
+    return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm bán quầy thành công", result));
   }
 }

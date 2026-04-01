@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
-import com.ballhub.ballhub_backend.dto.reponse.order.OrderDetailResponse;
-import com.ballhub.ballhub_backend.dto.reponse.order.OrderResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.dto.response.order.OrderDetailResponse;
+import com.ballhub.ballhub_backend.dto.response.order.OrderResponse;
 import com.ballhub.ballhub_backend.dto.request.order.CreateOrderRequest;
 import com.ballhub.ballhub_backend.security.CustomUserDetails;
 import com.ballhub.ballhub_backend.service.OrderService;

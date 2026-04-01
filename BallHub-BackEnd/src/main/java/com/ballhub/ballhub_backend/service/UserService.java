@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.ballhub.ballhub_backend.dto.reponse.user.UserResponse;
+import com.ballhub.ballhub_backend.dto.response.user.UserResponse;
 import com.ballhub.ballhub_backend.entity.User;
 import com.ballhub.ballhub_backend.repository.UserRepository;
 

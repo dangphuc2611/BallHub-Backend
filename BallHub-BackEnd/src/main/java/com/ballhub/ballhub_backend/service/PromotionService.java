@@ -1,7 +1,7 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
-import com.ballhub.ballhub_backend.dto.reponse.promotion.PromotionResponse;
+import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.dto.response.promotion.PromotionResponse;
 import com.ballhub.ballhub_backend.dto.request.promotion.CreatePromotionRequest;
 import com.ballhub.ballhub_backend.dto.request.promotion.UpdatePromotionRequest;
 import com.ballhub.ballhub_backend.entity.Promotion;

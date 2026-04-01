@@ -1,7 +1,7 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.payment.PaymentMethodResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.payment.PaymentMethodResponse;
 import com.ballhub.ballhub_backend.dto.request.payment.CreatePaymentMethodRequest;
 import com.ballhub.ballhub_backend.dto.request.payment.UpdatePaymentMethodRequest;
 import com.ballhub.ballhub_backend.service.PaymentMethodService;

@@ -1,6 +1,6 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
 import com.ballhub.ballhub_backend.security.CustomUserDetails;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

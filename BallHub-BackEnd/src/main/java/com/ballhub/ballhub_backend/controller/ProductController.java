@@ -1,10 +1,10 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.ProductDetailResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.ProductResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.VariantResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ProductDetailResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ProductResponse;
+import com.ballhub.ballhub_backend.dto.response.product.VariantResponse;
 import com.ballhub.ballhub_backend.dto.request.product.*;
 import com.ballhub.ballhub_backend.service.ProductService;
 import jakarta.validation.Valid;

@@ -1,6 +1,6 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.user.AddressResponse;
+import com.ballhub.ballhub_backend.dto.response.user.AddressResponse;
 import com.ballhub.ballhub_backend.dto.request.user.CreateAddressRequest;
 import com.ballhub.ballhub_backend.dto.request.user.UpdateAddressRequest;
 import com.ballhub.ballhub_backend.entity.User;

@@ -8,8 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ballhub.ballhub_backend.dto.reponse.admin.DashboardStatsResponse;
-import com.ballhub.ballhub_backend.dto.reponse.admin.ProductSalesDTO;
+import com.ballhub.ballhub_backend.dto.response.admin.DashboardStatsResponse;
+import com.ballhub.ballhub_backend.dto.response.admin.ProductSalesDTO;
 import com.ballhub.ballhub_backend.repository.OrderItemRepository;
 import com.ballhub.ballhub_backend.repository.OrderRepository;
 import com.ballhub.ballhub_backend.repository.UserRepository;

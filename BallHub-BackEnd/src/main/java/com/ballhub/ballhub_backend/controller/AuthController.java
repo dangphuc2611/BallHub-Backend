@@ -1,7 +1,7 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.auth.AuthResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.auth.AuthResponse;
 import com.ballhub.ballhub_backend.dto.request.auth.GoogleLoginRequest;
 import com.ballhub.ballhub_backend.dto.request.auth.LoginRequest;
 import com.ballhub.ballhub_backend.dto.request.auth.RefreshTokenRequest;

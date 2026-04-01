@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.user.AddressResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.user.AddressResponse;
 import com.ballhub.ballhub_backend.dto.request.user.CreateAddressRequest;
 import com.ballhub.ballhub_backend.dto.request.user.UpdateAddressRequest;
 import com.ballhub.ballhub_backend.security.CustomUserDetails;

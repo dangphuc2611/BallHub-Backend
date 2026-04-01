@@ -1,8 +1,8 @@
 package com.ballhub.ballhub_backend.controller;
 
 import com.ballhub.ballhub_backend.dto.request.review.CreateReviewRequest;
-import com.ballhub.ballhub_backend.dto.reponse.review.ProductReviewsResponse;
-import com.ballhub.ballhub_backend.dto.reponse.review.ReviewItem;
+import com.ballhub.ballhub_backend.dto.response.review.ProductReviewsResponse;
+import com.ballhub.ballhub_backend.dto.response.review.ReviewItem;
 import com.ballhub.ballhub_backend.security.CustomUserDetails;
 import com.ballhub.ballhub_backend.service.ReviewService;
 import lombok.RequiredArgsConstructor;

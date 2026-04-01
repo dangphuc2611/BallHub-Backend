@@ -1,7 +1,7 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.auth.AuthResponse;
-import com.ballhub.ballhub_backend.dto.reponse.auth.UserResponse;
+import com.ballhub.ballhub_backend.dto.response.auth.AuthResponse;
+import com.ballhub.ballhub_backend.dto.response.auth.UserResponse;
 import com.ballhub.ballhub_backend.dto.request.auth.LoginRequest;
 import com.ballhub.ballhub_backend.dto.request.auth.RefreshTokenRequest;
 import com.ballhub.ballhub_backend.dto.request.auth.RegisterRequest;

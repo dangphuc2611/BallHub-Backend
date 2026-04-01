@@ -1,8 +1,8 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
-import com.ballhub.ballhub_backend.dto.reponse.brand.BrandResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.dto.response.brand.BrandResponse;
 import com.ballhub.ballhub_backend.dto.request.brand.CreateBrandRequest;
 import com.ballhub.ballhub_backend.dto.request.brand.UpdateBrandRequest;
 import com.ballhub.ballhub_backend.service.BrandService;

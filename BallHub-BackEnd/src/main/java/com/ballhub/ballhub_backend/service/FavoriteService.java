@@ -1,6 +1,6 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.product.ProductResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ProductResponse;
 import com.ballhub.ballhub_backend.entity.Favorite;
 import com.ballhub.ballhub_backend.entity.Product;
 import com.ballhub.ballhub_backend.entity.User;

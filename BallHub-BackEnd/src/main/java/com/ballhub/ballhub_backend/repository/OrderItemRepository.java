@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.ballhub.ballhub_backend.dto.reponse.admin.ProductSalesDTO;
+import com.ballhub.ballhub_backend.dto.response.admin.ProductSalesDTO;
 import com.ballhub.ballhub_backend.entity.OrderItem;
 
 @Repository
@@ -20,7 +20,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
      * Chỉ tính đơn hàng có status = 'DELIVERED'
      */
     @Query("""
-                SELECT new com.ballhub.ballhub_backend.dto.reponse.admin.ProductSalesDTO(
+                SELECT new com.ballhub.ballhub_backend.dto.response.admin.ProductSalesDTO(
                     p.productId,
                     p.productName,
                     SUM(oi.quantity),

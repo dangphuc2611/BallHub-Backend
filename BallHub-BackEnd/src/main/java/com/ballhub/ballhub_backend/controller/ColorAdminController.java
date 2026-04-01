@@ -1,8 +1,8 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.PageResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.ColorResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ColorResponse;
 import com.ballhub.ballhub_backend.dto.request.product.ColorRequest;
 import com.ballhub.ballhub_backend.service.ColorService;
 import jakarta.validation.Valid;

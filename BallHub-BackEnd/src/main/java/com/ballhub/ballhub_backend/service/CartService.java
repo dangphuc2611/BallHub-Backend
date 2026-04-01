@@ -1,7 +1,7 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.cart.CartItemResponse;
-import com.ballhub.ballhub_backend.dto.reponse.cart.CartResponse;
+import com.ballhub.ballhub_backend.dto.response.cart.CartItemResponse;
+import com.ballhub.ballhub_backend.dto.response.cart.CartResponse;
 import com.ballhub.ballhub_backend.dto.request.cart.AddToCartRequest;
 import com.ballhub.ballhub_backend.dto.request.cart.UpdateCartItemRequest;
 import com.ballhub.ballhub_backend.entity.Cart;

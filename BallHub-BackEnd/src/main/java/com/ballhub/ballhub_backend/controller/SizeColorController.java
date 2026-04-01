@@ -1,8 +1,8 @@
 package com.ballhub.ballhub_backend.controller;
 
-import com.ballhub.ballhub_backend.dto.reponse.ApiResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.ColorResponse;
-import com.ballhub.ballhub_backend.dto.reponse.product.SizeResponse;
+import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ColorResponse;
+import com.ballhub.ballhub_backend.dto.response.product.SizeResponse;
 import com.ballhub.ballhub_backend.repository.ColorRepository;
 import com.ballhub.ballhub_backend.repository.SizeRepository;
 import lombok.RequiredArgsConstructor;
