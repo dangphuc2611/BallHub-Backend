@@ -75,15 +75,35 @@ public class UserService {
     // 3. Lấy danh sách tất cả user
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
-                .map(user -> UserResponse.builder()
-                        .userId(user.getUserId())
-                        .fullName(user.getFullName())
-                        .email(user.getEmail())
-                        .phone(user.getPhone())
-                        .avatar(user.getAvatar())
-                        .role(user.getRole())
-                        .build())
+                .map(this::mapToUserResponse)
                 .collect(Collectors.toList());
     }
 
+    // ==========================================
+    // 4. API DÀNH CHO ADMIN/POS: Tìm kiếm khách hàng
+    // ==========================================
+    public List<UserResponse> searchUsers(String keyword) {
+        // ✅ ĐÃ SỬA: Bỏ đoạn check if rỗng.
+        // Nếu keyword rỗng hoặc null, SQL sẽ dùng "%%" để lấy TẤT CẢ bản ghi.
+        String safeKeyword = (keyword == null) ? "" : keyword.trim();
+        String searchParam = "%" + safeKeyword + "%";
+
+        List<User> users = userRepository.searchByKeyword(searchParam);
+
+        return users.stream()
+                .map(this::mapToUserResponse)
+                .collect(Collectors.toList());
+    }
+
+    // Hàm phụ trợ dùng chung để chuyển User entity sang UserResponse DTO
+    private UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder()
+                .userId(user.getUserId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .avatar(user.getAvatar())
+                .role(user.getRole())
+                .build();
+    }
 }

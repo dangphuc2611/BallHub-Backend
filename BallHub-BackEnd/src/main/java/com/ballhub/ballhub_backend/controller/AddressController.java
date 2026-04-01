@@ -6,14 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.ballhub.ballhub_backend.dto.response.ApiResponse;
 import com.ballhub.ballhub_backend.dto.response.user.AddressResponse;
@@ -25,20 +18,22 @@ import com.ballhub.ballhub_backend.service.AddressService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/users/me/addresses")
+// Đổi từ /api/users/me/addresses thành /api/addresses để linh hoạt hơn
+@RequestMapping("/api/addresses")
 public class AddressController {
 
     @Autowired
     private AddressService addressService;
 
-    @GetMapping
+    // Các hàm cũ của khách hàng: Cần thêm chữ "/me" vào trước
+    @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<AddressResponse>>> getMyAddresses(Authentication authentication) {
         Integer userId = getUserId(authentication);
         List<AddressResponse> addresses = addressService.getMyAddresses(userId);
         return ResponseEntity.ok(ApiResponse.success(addresses));
     }
 
-    @PostMapping
+    @PostMapping("/me")
     public ResponseEntity<ApiResponse<AddressResponse>> createAddress(
             @Valid @RequestBody CreateAddressRequest request,
             Authentication authentication) {
@@ -49,7 +44,7 @@ public class AddressController {
                 .body(ApiResponse.success("Tạo địa chỉ thành công", address));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/me/{id}")
     public ResponseEntity<ApiResponse<AddressResponse>> updateAddress(
             @PathVariable Integer id,
             @Valid @RequestBody UpdateAddressRequest request,
@@ -59,7 +54,7 @@ public class AddressController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật địa chỉ thành công", address));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/me/{id}")
     public ResponseEntity<ApiResponse<?>> deleteAddress(
             @PathVariable Integer id,
             Authentication authentication) {
@@ -68,7 +63,7 @@ public class AddressController {
         return ResponseEntity.ok(ApiResponse.success("Xóa địa chỉ thành công", null));
     }
 
-    @PutMapping("/{id}/default")
+    @PutMapping("/me/{id}/default")
     public ResponseEntity<ApiResponse<AddressResponse>> setDefaultAddress(
             @PathVariable Integer id,
             Authentication authentication) {
@@ -84,5 +79,15 @@ public class AddressController {
         }
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         return userDetails.getUserId();
+    }
+
+    // ==========================================
+    // API ADMIN: Lấy danh sách địa chỉ của 1 User bất kỳ
+    // ==========================================
+    @GetMapping("/admin/user/{userId}")
+    public ResponseEntity<ApiResponse<List<AddressResponse>>> getAddressesByUserId(@PathVariable Integer userId) {
+        // Có thể tái sử dụng luôn hàm getMyAddresses vì bản chất nó chỉ cần truyền ID vào
+        List<AddressResponse> addresses = addressService.getMyAddresses(userId);
+        return ResponseEntity.ok(ApiResponse.success(addresses));
     }
 }

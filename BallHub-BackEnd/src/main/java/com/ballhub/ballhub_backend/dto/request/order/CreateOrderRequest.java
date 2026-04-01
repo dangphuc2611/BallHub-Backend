@@ -12,6 +12,10 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class CreateOrderRequest {
 
+    private Integer customerId;
+
+    private String deliveryAddress;
+
     // ✅ XÓA @NotNull: Vì đơn hàng tại quầy (POS) sẽ KHÔNG CÓ địa chỉ
     private Integer addressId;
 
@@ -26,4 +30,7 @@ public class CreateOrderRequest {
 
     // ✅ BỔ SUNG: Cờ đánh dấu đây là đơn hàng bán tại quầy
     private Boolean isPos;
+
+    private String fullName;
+    private String phone;
 }

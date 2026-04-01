@@ -82,4 +82,22 @@ public class UserController {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
         }
     }
+
+    // ==========================================
+    // 3. API ADMIN: Tìm kiếm khách hàng cho POS
+    // ==========================================
+    @GetMapping("/admin/search")
+    public ResponseEntity<?> searchUsersForPos(
+            // ✅ ĐÃ SỬA: Thêm required = false và defaultValue = ""
+            @RequestParam(value = "keyword", required = false, defaultValue = "") String keyword) {
+        try {
+            // Lấy danh sách user từ Service
+            java.util.List<UserResponse> users = userService.searchUsers(keyword);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Tìm kiếm khách hàng thành công", users));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        }
+    }
+
+
 }
