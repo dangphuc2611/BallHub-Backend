@@ -127,6 +127,14 @@ public class PromotionService {
         promotionRepository.deleteById(id);
     }
 
+    // ─── Dùng cho POS: Lấy danh sách khuyến mãi đang hoạt động ──────────────
+    public List<PromotionResponse> getAllActivePromotions() {
+        // Tận dụng luôn hàm findValidVouchers đã có trong Repository
+        return promotionRepository.findValidVouchers().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
     // ─── Helper: map entity → DTO ─────────────────────────────────────────────
     private PromotionResponse mapToResponse(Promotion promotion) {
         return PromotionResponse.builder()

@@ -86,4 +86,11 @@ public class PromotionController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
         }
     }
+
+    @GetMapping("/active")
+    public ResponseEntity<ApiResponse<List<PromotionResponse>>> getActivePromotions() {
+        // Lấy các promotion còn hạn và Status = true
+        List<PromotionResponse> promotions = promotionService.getAllActivePromotions();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách khuyến mãi thành công", promotions));
+    }
 }

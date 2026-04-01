@@ -176,9 +176,17 @@ public class OrderService {
         }
 
         // 9. Lưu lịch sử và xóa giỏ hàng
-        String historyNote = Boolean.TRUE.equals(request.getIsPos())
-                ? "Thanh toán thành công tại quầy (POS)"
-                : "Khách hàng đặt đơn thành công";
+        String historyNote = "Khách hàng đặt đơn thành công";
+        if (Boolean.TRUE.equals(request.getIsPos())) {
+            // ✅ Đã sửa: Ép Backend phải nhận Ghi chú chứa tên khách lẻ từ Frontend
+            historyNote = (request.getNote() != null && !request.getNote().trim().isEmpty())
+                    ? request.getNote()
+                    : "Thanh toán thành công tại quầy (POS)";
+        } else {
+            if (request.getNote() != null && !request.getNote().trim().isEmpty()) {
+                historyNote = request.getNote();
+            }
+        }
 
         savedOrder.updateStatus(finalStatus, historyNote);
         cart.clearCart();
@@ -226,19 +234,26 @@ public class OrderService {
     // ============================================
     private OrderResponse mapToResponse(Order order) {
         int totalItems = order.getItems() != null
-                ? order.getItems().stream().mapToInt(OrderItem::getQuantity).sum()
-                : 0;
-
+                ? order.getItems().stream().mapToInt(OrderItem::getQuantity).sum() : 0;
         String deliveryAddress = (order.getAddress() != null) ? order.getAddress().getFullAddress() : null;
+        BigDecimal calculatedTotal = order.getSubTotal().subtract(order.getDiscountAmount()).add(order.getShippingFee());
 
-        BigDecimal calculatedTotal = order.getSubTotal()
-                .subtract(order.getDiscountAmount())
-                .add(order.getShippingFee());
+        // ✅ Lấy tên khách lẻ từ Note cho Màn hình danh sách đơn
+        String displayFullName = order.getUser().getFullName();
+        if (order.getAddress() == null && order.getStatusHistory() != null) {
+            for (OrderStatusHistory h : order.getStatusHistory()) {
+                if (h.getNote() != null && h.getNote().startsWith("POS_CUSTOMER|")) {
+                    String[] parts = h.getNote().split("\\|");
+                    if (parts.length >= 2) displayFullName = parts[1]; // Lấy Tên
+                    break;
+                }
+            }
+        }
 
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .userId(order.getUser().getUserId())
-                .userFullName(order.getUser().getFullName())
+                .userFullName(displayFullName) // Truyền tên chuẩn
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
@@ -252,35 +267,39 @@ public class OrderService {
     }
 
     private OrderDetailResponse mapToDetailResponse(Order order) {
-        List<OrderItem> items = order.getItems();
-        if (items == null) {
-            items = new java.util.ArrayList<>();
-        }
+        List<OrderItem> items = order.getItems() != null ? order.getItems() : new java.util.ArrayList<>();
+        List<OrderItemResponse> itemResponses = items.stream().map(this::mapToItemResponse).collect(Collectors.toList());
 
-        List<OrderItemResponse> itemResponses = items.stream()
-                .map(this::mapToItemResponse)
-                .collect(Collectors.toList());
+        List<OrderStatusHistory> history = order.getStatusHistory() != null ? order.getStatusHistory() : new java.util.ArrayList<>();
+        List<OrderStatusHistoryResponse> historyResponses = history.stream().map(this::mapToHistoryResponse).collect(Collectors.toList());
 
-        List<OrderStatusHistory> history = order.getStatusHistory();
-        if (history == null) {
-            history = new java.util.ArrayList<>();
-        }
+        String promoCodeUsed = (order.getPromotion() != null) ? order.getPromotion().getPromoCode() : null;
 
-        List<OrderStatusHistoryResponse> historyResponses = history.stream()
-                .map(this::mapToHistoryResponse)
-                .collect(Collectors.toList());
+        // ✅ LOGIC MỚI: Xử lý Tên, SĐT và LÀM TRỐNG EMAIL cho khách POS
+        String displayFullName = order.getUser().getFullName();
+        String displayPhone = order.getUser().getPhone();
+        String displayEmail = order.getUser().getEmail(); // Mặc định lấy email admin
 
-        String promoCodeUsed = null;
-        if (order.getPromotion() != null) {
-            promoCodeUsed = order.getPromotion().getPromoCode();
+        if (order.getAddress() == null && order.getStatusHistory() != null) {
+            for (OrderStatusHistory h : order.getStatusHistory()) {
+                if (h.getNote() != null && h.getNote().startsWith("POS_CUSTOMER|")) {
+                    String[] parts = h.getNote().split("\\|");
+                    if (parts.length >= 3) {
+                        displayFullName = parts[1]; // Lấy Tên
+                        displayPhone = parts[2].equals("Trống") ? "Mua tại quầy" : parts[2]; // Lấy SĐT
+                        displayEmail = ""; // ✅ XÓA EMAIL ADMIN ĐỂ TRỐNG
+                    }
+                    break;
+                }
+            }
         }
 
         return OrderDetailResponse.builder()
                 .orderId(order.getOrderId())
                 .userId(order.getUser().getUserId())
-                .userFullName(order.getUser().getFullName())
-                .userEmail(order.getUser().getEmail())
-                .userPhone(order.getUser().getPhone())
+                .userFullName(displayFullName) // Truyền tên chuẩn
+                .userEmail(displayEmail)       // ✅ Truyền Email đã làm trống
+                .userPhone(displayPhone)       // Truyền SĐT chuẩn
                 .deliveryAddress(order.getAddress() != null ? order.getAddress().getFullAddress() : "")
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .statusName(order.getStatus().getStatusName())
@@ -329,11 +348,18 @@ public class OrderService {
     }
 
     private OrderStatusHistoryResponse mapToHistoryResponse(OrderStatusHistory history) {
+        String displayNote = history.getNote();
+
+        // ✅ LOGIC MỚI: Dịch mật mã POS thành câu thân thiện cho Lịch sử đơn
+        if (displayNote != null && displayNote.startsWith("POS_CUSTOMER|")) {
+            displayNote = "Thanh toán thành công tại quầy (POS)";
+        }
+
         return OrderStatusHistoryResponse.builder()
                 .historyId(history.getHistoryId())
                 .statusName(history.getStatus().getStatusName())
                 .changedAt(history.getChangedAt())
-                .note(history.getNote())
+                .note(displayNote) // ✅ Truyền câu hiển thị đã được làm đẹp
                 .build();
     }
 
