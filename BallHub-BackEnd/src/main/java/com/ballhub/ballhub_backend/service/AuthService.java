@@ -5,9 +5,11 @@ import com.ballhub.ballhub_backend.dto.response.auth.UserResponse;
 import com.ballhub.ballhub_backend.dto.request.auth.LoginRequest;
 import com.ballhub.ballhub_backend.dto.request.auth.RefreshTokenRequest;
 import com.ballhub.ballhub_backend.dto.request.auth.RegisterRequest;
+import com.ballhub.ballhub_backend.entity.OtpToken;
 import com.ballhub.ballhub_backend.entity.RefreshToken;
 import com.ballhub.ballhub_backend.entity.User;
 import com.ballhub.ballhub_backend.exception.UnauthorizedException;
+import com.ballhub.ballhub_backend.repository.OtpTokenRepository;
 import com.ballhub.ballhub_backend.repository.RefreshTokenRepository;
 import com.ballhub.ballhub_backend.repository.UserRepository;
 import com.ballhub.ballhub_backend.security.CustomUserDetails;
@@ -19,6 +21,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -30,6 +34,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Random;
 
 @Service
 @Transactional
@@ -52,6 +57,11 @@ public class AuthService {
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
+
+    @Autowired
+    private JavaMailSender mailSender;
+    @Autowired
+    private OtpTokenRepository otpRepository;
 
     // --- CÁC PHƯƠNG THỨC GIỮ NGUYÊN ---
 
@@ -232,5 +242,54 @@ public class AuthService {
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    // HÀM 1: TẠO VÀ GỬI OTP
+    public void processForgotPassword(String email) {
+        // 1. Kiểm tra email có tồn tại trong DB không
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống!"));
+
+        // 2. Tạo mã OTP ngẫu nhiên 6 số
+        String otp = String.format("%06d", new Random().nextInt(999999));
+
+        // 3. Lưu vào Database (Thời hạn 5 phút)
+        OtpToken otpToken = new OtpToken();
+        otpToken.setEmail(email);
+        otpToken.setOtpCode(otp);
+        otpToken.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+        otpRepository.save(otpToken);
+
+        // 4. Gửi Email
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("Mã xác nhận đặt lại mật khẩu - BallHub");
+        message.setText("Xin chào " + user.getFullName() + ",\n\n"
+                + "Mã OTP để đặt lại mật khẩu của bạn là: " + otp + "\n"
+                + "Mã này sẽ hết hạn sau 5 phút. Vui lòng không chia sẻ cho người khác.\n\n"
+                + "Trân trọng,\nĐội ngũ BallHub");
+        mailSender.send(message);
+    }
+
+    // HÀM 2: KIỂM TRA OTP VÀ ĐỔI MẬT KHẨU
+    public void processResetPassword(String email, String otp, String newPassword) {
+        // 1. Tìm mã OTP trong DB
+        OtpToken otpToken = otpRepository.findByEmailAndOtpCode(email, otp)
+                .orElseThrow(() -> new RuntimeException("Mã OTP không chính xác!"));
+
+        // 2. Kiểm tra hết hạn
+        if (otpToken.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Mã OTP đã hết hạn!");
+        }
+
+        // 3. Tìm User và Đổi mật khẩu
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // 4. Xóa mã OTP sau khi dùng xong
+        otpRepository.delete(otpToken);
     }
 }

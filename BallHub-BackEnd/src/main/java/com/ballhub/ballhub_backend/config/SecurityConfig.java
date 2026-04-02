@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -72,7 +73,26 @@ public class SecurityConfig {
                 // .anyRequest().authenticated())
 
                 // security disabled: permit all
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .authorizeHttpRequests(auth -> auth
+                        // 1. TÀI NGUYÊN TĨNH & PUBLIC
+                        .requestMatchers("/img/**", "/uploads/**").permitAll()
+
+                        // 2. AUTHENTICATION (Đăng nhập, Đăng ký, Quên mật khẩu, Google)
+                        .requestMatchers("/api/auth/**").permitAll()
+
+                        // 3. XEM SẢN PHẨM (Ai cũng xem được)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/products/**",
+                                "/api/categories/**",
+                                "/api/brands/**",
+                                "/api/promotions/**").permitAll()
+
+                        // 4. CHỨC NĂNG CỦA ADMIN
+                        .requestMatchers("/api/admin/**", "/api/stats/**").hasRole("ADMIN")
+
+                        // 5. CÁC API CÒN LẠI BẮT BUỘC PHẢI ĐĂNG NHẬP (Giỏ hàng, Đặt hàng, Profile...)
+                        .anyRequest().authenticated()
+                )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

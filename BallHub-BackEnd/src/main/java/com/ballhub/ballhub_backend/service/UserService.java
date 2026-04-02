@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -105,5 +107,22 @@ public class UserService {
                 .avatar(user.getAvatar())
                 .role(user.getRole())
                 .build();
+    }
+
+    @Autowired
+    private PasswordEncoder passwordEncoder; // Thêm cái này ở đầu class nếu chưa có
+
+    public void changePassword(Integer userId, String oldPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // Kiểm tra mật khẩu cũ có khớp không
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new RuntimeException("Mật khẩu hiện tại không đúng!");
+        }
+
+        // Mã hóa và lưu mật khẩu mới
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 }

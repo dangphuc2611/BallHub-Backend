@@ -58,6 +58,8 @@ public class OrderService {
     private PromotionRepository promotionRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private EmailService emailService;
 
     public OrderDetailResponse createOrder(Integer userId, CreateOrderRequest request) {
         Cart cart = cartRepository.findByUserUserId(userId)
@@ -168,12 +170,15 @@ public class OrderService {
             if ("PERCENT".equals(appliedVoucher.getDiscountType())) {
                 discountAmt = subTotal.multiply(BigDecimal.valueOf(appliedVoucher.getDiscountPercent()))
                         .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+
+                // ⚠️ FIX BUG: Kiểm tra giới hạn giảm tối đa (Max Discount)
                 if (appliedVoucher.getMaxDiscountAmount() != null
                         && discountAmt.compareTo(appliedVoucher.getMaxDiscountAmount()) > 0) {
+                    // Nếu tiền giảm tính ra LỚN HƠN mức tối đa cho phép -> Ép nó về bằng mức tối đa
                     discountAmt = appliedVoucher.getMaxDiscountAmount();
                 }
             } else {
-                discountAmt = appliedVoucher.getMaxDiscountAmount();
+                discountAmt = appliedVoucher.getMaxDiscountAmount(); // Dành cho voucher trừ tiền mặt trực tiếp
             }
 
             savedOrder.setDiscountAmount(discountAmt);
@@ -196,6 +201,7 @@ public class OrderService {
 
         savedOrder.updateStatus(finalStatus, historyNote);
         cart.clearCart();
+        emailService.sendOrderSuccessEmail(orderOwner.getEmail(), savedOrder);
         cartRepository.save(cart);
 
         return mapToDetailResponse(orderRepository.save(savedOrder));

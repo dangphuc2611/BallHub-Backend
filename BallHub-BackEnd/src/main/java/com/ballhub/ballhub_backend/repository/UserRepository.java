@@ -30,4 +30,10 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             "OR u.phone LIKE :keyword " +
             "OR LOWER(u.email) LIKE LOWER(:keyword))")
     List<User> searchByKeyword(@Param("keyword") String keyword);
+
+    List<User> findByRole(String role); // Spring sẽ tự hiểu query: WHERE role = ?
+
+    // Tìm những người dùng có Role nằm trong danh sách truyền vào (không phân biệt hoa thường)
+    @Query("SELECT u FROM User u WHERE UPPER(u.role) IN :roles AND u.status = true")
+    List<User> findByRolesIn(@Param("roles") List<String> roles);
 }

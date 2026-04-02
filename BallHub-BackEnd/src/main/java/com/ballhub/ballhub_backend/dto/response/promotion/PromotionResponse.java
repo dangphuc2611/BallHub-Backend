@@ -26,4 +26,5 @@ public class PromotionResponse {
     private LocalDateTime endDate;
     private Boolean status;
     private boolean valid;               // Computed: còn hiệu lực hay không
+    private String description;
 }

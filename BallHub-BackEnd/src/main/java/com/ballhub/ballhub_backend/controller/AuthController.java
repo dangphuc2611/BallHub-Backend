@@ -1,11 +1,8 @@
 package com.ballhub.ballhub_backend.controller;
 
+import com.ballhub.ballhub_backend.dto.request.auth.*;
 import com.ballhub.ballhub_backend.dto.response.ApiResponse;
 import com.ballhub.ballhub_backend.dto.response.auth.AuthResponse;
-import com.ballhub.ballhub_backend.dto.request.auth.GoogleLoginRequest;
-import com.ballhub.ballhub_backend.dto.request.auth.LoginRequest;
-import com.ballhub.ballhub_backend.dto.request.auth.RefreshTokenRequest;
-import com.ballhub.ballhub_backend.dto.request.auth.RegisterRequest;
 import com.ballhub.ballhub_backend.service.AuthService;
 import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
@@ -51,5 +48,17 @@ public class AuthController {
     public ResponseEntity<ApiResponse<?>> logout(@Valid @RequestBody RefreshTokenRequest request) {
         authService.logout(request.getRefreshToken());
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công", null));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<?>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        authService.processForgotPassword(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi mã OTP", null));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<?>> resetPassword(@RequestBody ResetPasswordRequest request) {
+        authService.processResetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công", null));
     }
 }

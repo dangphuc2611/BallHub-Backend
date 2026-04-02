@@ -24,13 +24,17 @@ public class Promotion {
     private String promotionName;
 
     @Column(name = "PromoCode", length = 50, unique = true)
-    private String promoCode; // Nếu NULL -> Flash sale, Nếu có chuỗi -> Voucher
+    private String promoCode;
+
+    // ✅ BỔ SUNG TRƯỜNG NÀY ĐỂ HẾT LỖI ĐỎ TRONG SERVICE
+    @Column(name = "Description", columnDefinition = "TEXT")
+    private String description;
 
     @Column(name = "DiscountPercent")
     private Integer discountPercent;
 
     @Column(name = "DiscountType", length = 20)
-    private String discountType; // "PERCENT" hoặc "FIXED"
+    private String discountType;
 
     @Column(name = "MinOrderAmount", precision = 18, scale = 2)
     private BigDecimal minOrderAmount;
@@ -51,17 +55,16 @@ public class Promotion {
     private LocalDateTime endDate;
 
     @Column(name = "Status")
-    private Boolean status;
+    private Boolean status; // Lưu ý: Entity dùng status
 
     @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<VariantPromotion> variantPromotions;
 
-    // Business method: Hàm tiện ích kiểm tra mã còn hợp lệ không
     public boolean isValid() {
         LocalDateTime now = LocalDateTime.now();
         return Boolean.TRUE.equals(this.status) &&
                 (this.startDate == null || !now.isBefore(this.startDate)) &&
                 (this.endDate == null || !now.isAfter(this.endDate)) &&
-                (this.usageLimit == null || this.usageLimit == 0 || this.usedCount < this.usageLimit);
+                (this.usageLimit == null || this.usageLimit == 0 || (this.usedCount != null && this.usedCount < this.usageLimit));
     }
 }

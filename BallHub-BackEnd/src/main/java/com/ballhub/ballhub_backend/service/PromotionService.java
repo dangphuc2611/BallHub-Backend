@@ -1,156 +1,175 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.response.PageResponse;
+import com.ballhub.ballhub_backend.dto.request.promotion.PromotionRequest;
 import com.ballhub.ballhub_backend.dto.response.promotion.PromotionResponse;
-import com.ballhub.ballhub_backend.dto.request.promotion.CreatePromotionRequest;
-import com.ballhub.ballhub_backend.dto.request.promotion.UpdatePromotionRequest;
 import com.ballhub.ballhub_backend.entity.Promotion;
+import com.ballhub.ballhub_backend.entity.User;
+import com.ballhub.ballhub_backend.exception.BadRequestException;
+import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;
 import com.ballhub.ballhub_backend.repository.PromotionRepository;
+import com.ballhub.ballhub_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class PromotionService {
 
     @Autowired
     private PromotionRepository promotionRepository;
 
-    // ─── PUBLIC: Lấy tất cả voucher hợp lệ (dùng ở trang Checkout) ───────────
-    public List<PromotionResponse> getValidVouchers() {
-        return promotionRepository.findValidVouchers().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
+    @Autowired
+    private UserRepository userRepository;
 
-    // ─── ADMIN: Lấy tất cả voucher có phân trang ─────────────────────────────
-    public PageResponse<PromotionResponse> getAllVouchers(int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Page<Promotion> pageResult = promotionRepository.findAllVouchers(pageRequest);
-        Page<PromotionResponse> responsePage = pageResult.map(this::mapToResponse);
-        return PageResponse.of(responsePage);
-    }
+    @Autowired
+    private EmailService emailService;
 
-    // ─── ADMIN: Lấy chi tiết một voucher ─────────────────────────────────────
-    public PromotionResponse getVoucherById(Integer id) {
-        Promotion promotion = promotionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy voucher với id: " + id));
-        return mapToResponse(promotion);
-    }
-
-    // ─── ADMIN: Tạo mới voucher ───────────────────────────────────────────────
-    public PromotionResponse createVoucher(CreatePromotionRequest request) {
-        // Kiểm tra promoCode trùng
-        if (request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
-            if (promotionRepository.existsByPromoCode(request.getPromoCode().trim().toUpperCase())) {
-                throw new RuntimeException("Mã voucher đã tồn tại: " + request.getPromoCode());
-            }
+    // ============================================
+    // ADMIN: TẠO VOUCHER & BẮN EMAIL MARKETING
+    // ============================================
+    public PromotionResponse createPromotion(PromotionRequest request) {
+        // 1. Kiểm tra trùng mã code trước khi làm bất cứ việc gì
+        if (request.getPromoCode() != null && promotionRepository.existsByPromoCode(request.getPromoCode())) {
+            throw new BadRequestException("Mã giảm giá '" + request.getPromoCode() + "' đã tồn tại!");
         }
 
-        // Đảm bảo giá trị hợp lệ cho DiscountPercent để tránh lỗi CHECK constraint
-        Integer discountPercent = request.getDiscountPercent();
-        if ("FIXED".equals(request.getDiscountType())) {
-            discountPercent = 0; // Nếu giảm tiền mặt thì % = 0
-        } else if (discountPercent == null || discountPercent < 0) {
-            discountPercent = 0;
-        } else if (discountPercent > 100) {
-            discountPercent = 100;
+        // 2. Validate ngày tháng
+        if (request.getEndDate() != null && request.getStartDate() != null && request.getEndDate().isBefore(request.getStartDate())) {
+            throw new BadRequestException("Ngày kết thúc không được trước ngày bắt đầu!");
         }
 
+        // 3. Xây dựng đối tượng Promotion
         Promotion promotion = Promotion.builder()
                 .promotionName(request.getPromotionName())
-                .promoCode(request.getPromoCode() != null ? request.getPromoCode().trim().toUpperCase() : null)
-                .discountPercent(discountPercent)
+                .promoCode(request.getPromoCode() != null ? request.getPromoCode().toUpperCase() : null)
+                .description(request.getDescription())
                 .discountType(request.getDiscountType())
-                .minOrderAmount(request.getMinOrderAmount())
+                .discountPercent(request.getDiscountPercent())
                 .maxDiscountAmount(request.getMaxDiscountAmount())
+                .minOrderAmount(request.getMinOrderAmount())
                 .usageLimit(request.getUsageLimit())
                 .usedCount(0)
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(request.getStatus() != null ? request.getStatus() : true)
+                .status(true)
                 .build();
 
-        Promotion saved = promotionRepository.save(promotion);
-        return mapToResponse(saved);
-    }
+        // 4. Lưu vào Database
+        Promotion savedPromotion = promotionRepository.save(promotion);
 
-    // ─── ADMIN: Cập nhật voucher ──────────────────────────────────────────────
-    public PromotionResponse updateVoucher(Integer id, UpdatePromotionRequest request) {
-        Promotion promotion = promotionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy voucher với id: " + id));
+        // 🚀 5. GỬI EMAIL MARKETING (Hệ thống tự chạy ngầm nhờ @Async trong EmailService)
+        // Chỉ gửi nếu là Voucher (có code) và đang ở trạng thái active
+        if (savedPromotion.getPromoCode() != null && Boolean.TRUE.equals(savedPromotion.getStatus())) {
 
-        // Kiểm tra promoCode trùng (ngoại trừ bản ghi đang sửa)
-        if (request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
-            String newCode = request.getPromoCode().trim().toUpperCase();
-            if (promotionRepository.existsByPromoCodeAndPromotionIdNot(newCode, id)) {
-                throw new RuntimeException("Mã voucher đã tồn tại: " + newCode);
-            }
-            promotion.setPromoCode(newCode);
-        }
+            // ✅ KẾT HỢP: Tìm cả khách hàng (USER) và quản trị viên (ADMIN) để cùng nhận mail
+            // Dùng List.of("USER", "ADMIN") để lấy cả 2 nhóm
+            List<User> recipients = userRepository.findByRolesIn(List.of("USER", "ADMIN"));
 
-        if (request.getPromotionName() != null)   promotion.setPromotionName(request.getPromotionName());
-        
-        // Xử lý DiscountPercent khi cập nhật
-        if (request.getDiscountType() != null) {
-            promotion.setDiscountType(request.getDiscountType());
-            if ("FIXED".equals(request.getDiscountType())) {
-                promotion.setDiscountPercent(0);
+            List<String> userEmails = recipients.stream()
+                    .map(User::getEmail)
+                    .filter(email -> email != null && !email.isEmpty())
+                    .collect(Collectors.toList());
+
+            if (!userEmails.isEmpty()) {
+                System.out.println("🚀 Đang gửi mail cho " + userEmails.size() + " người (bao gồm cả Admin)...");
+                emailService.sendNewVoucherEmail(userEmails, savedPromotion.getPromoCode(), savedPromotion.getDescription());
+            } else {
+                System.out.println("⚠️ Không tìm thấy email nào để gửi!");
             }
         }
-        
-        if (request.getDiscountPercent() != null && !"FIXED".equals(promotion.getDiscountType())) {
-            int val = request.getDiscountPercent();
-            promotion.setDiscountPercent(Math.max(0, Math.min(100, val)));
-        }
 
-        if (request.getMinOrderAmount() != null)   promotion.setMinOrderAmount(request.getMinOrderAmount());
-        if (request.getMaxDiscountAmount() != null) promotion.setMaxDiscountAmount(request.getMaxDiscountAmount());
-        if (request.getUsageLimit() != null)       promotion.setUsageLimit(request.getUsageLimit());
-        if (request.getStartDate() != null)        promotion.setStartDate(request.getStartDate());
-        if (request.getEndDate() != null)          promotion.setEndDate(request.getEndDate());
-        if (request.getStatus() != null)           promotion.setStatus(request.getStatus());
-
-        Promotion saved = promotionRepository.save(promotion);
-        return mapToResponse(saved);
+        return mapToResponse(savedPromotion);
     }
 
-    // ─── ADMIN: Xóa voucher ───────────────────────────────────────────────────
-    public void deleteVoucher(Integer id) {
-        if (!promotionRepository.existsById(id)) {
-            throw new RuntimeException("Không tìm thấy voucher với id: " + id);
+    public PromotionResponse updatePromotion(Integer promoId, PromotionRequest request) {
+        Promotion promotion = promotionRepository.findById(promoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
+
+        // Nếu đổi mã code, kiểm tra xem mã mới có trùng với ai khác không
+        if (request.getPromoCode() != null &&
+                !request.getPromoCode().equalsIgnoreCase(promotion.getPromoCode()) &&
+                promotionRepository.existsByPromoCode(request.getPromoCode())) {
+            throw new BadRequestException("Mã giảm giá mới đã tồn tại!");
         }
-        promotionRepository.deleteById(id);
+
+        promotion.setPromotionName(request.getPromotionName());
+        promotion.setPromoCode(request.getPromoCode() != null ? request.getPromoCode().toUpperCase() : null);
+        promotion.setDescription(request.getDescription());
+        promotion.setDiscountType(request.getDiscountType());
+        promotion.setDiscountPercent(request.getDiscountPercent());
+        promotion.setMaxDiscountAmount(request.getMaxDiscountAmount());
+        promotion.setMinOrderAmount(request.getMinOrderAmount());
+        promotion.setUsageLimit(request.getUsageLimit());
+        promotion.setStartDate(request.getStartDate());
+        promotion.setEndDate(request.getEndDate());
+
+        return mapToResponse(promotionRepository.save(promotion));
     }
 
-    // ─── Dùng cho POS: Lấy danh sách khuyến mãi đang hoạt động ──────────────
+    public void deletePromotion(Integer promoId) {
+        Promotion promotion = promotionRepository.findById(promoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
+        promotion.setStatus(false);
+        promotionRepository.save(promotion);
+    }
+
+    public PromotionResponse toggleActive(Integer promoId) {
+        Promotion promotion = promotionRepository.findById(promoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
+        promotion.setStatus(!Boolean.TRUE.equals(promotion.getStatus()));
+        return mapToResponse(promotionRepository.save(promotion));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PromotionResponse> getAllPromotions(Pageable pageable) {
+        return promotionRepository.findAll(pageable).map(this::mapToResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public PromotionResponse checkAndApplyVoucher(String promoCode) {
+        Promotion promotion = promotionRepository.findByPromoCode(promoCode)
+                .orElseThrow(() -> new BadRequestException("Mã giảm giá không tồn tại!"));
+
+        if (!promotion.isValid()) {
+            throw new BadRequestException("Mã giảm giá đã hết hạn hoặc hết lượt sử dụng!");
+        }
+
+        return mapToResponse(promotion);
+    }
+
+    @Transactional(readOnly = true)
     public List<PromotionResponse> getAllActivePromotions() {
-        // Tận dụng luôn hàm findValidVouchers đã có trong Repository
+        // Dùng hàm findValidVouchers từ Repository để lấy danh sách voucher còn hạn
         return promotionRepository.findValidVouchers().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // ─── Helper: map entity → DTO ─────────────────────────────────────────────
-    private PromotionResponse mapToResponse(Promotion promotion) {
+    // ============================================
+    // MAPPING: ENTITY -> RESPONSE DTO
+    // ============================================
+    private PromotionResponse mapToResponse(Promotion p) {
         return PromotionResponse.builder()
-                .promotionId(promotion.getPromotionId())
-                .promotionName(promotion.getPromotionName())
-                .promoCode(promotion.getPromoCode())
-                .discountPercent(promotion.getDiscountPercent())
-                .discountType(promotion.getDiscountType())
-                .minOrderAmount(promotion.getMinOrderAmount())
-                .maxDiscountAmount(promotion.getMaxDiscountAmount())
-                .usageLimit(promotion.getUsageLimit())
-                .usedCount(promotion.getUsedCount())
-                .startDate(promotion.getStartDate())
-                .endDate(promotion.getEndDate())
-                .status(promotion.getStatus())
-                .valid(promotion.isValid())
+                .promotionId(p.getPromotionId())
+                .promotionName(p.getPromotionName())
+                .promoCode(p.getPromoCode())
+                .description(p.getDescription())
+                .discountType(p.getDiscountType())
+                .discountPercent(p.getDiscountPercent())
+                .maxDiscountAmount(p.getMaxDiscountAmount())
+                .minOrderAmount(p.getMinOrderAmount())
+                .usageLimit(p.getUsageLimit())
+                .usedCount(p.getUsedCount())
+                .startDate(p.getStartDate())
+                .endDate(p.getEndDate())
+                .status(p.getStatus())
+                .valid(p.isValid())
                 .build();
     }
 }

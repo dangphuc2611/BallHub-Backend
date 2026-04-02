@@ -1,6 +1,9 @@
 package com.ballhub.ballhub_backend.controller;
 
+import com.ballhub.ballhub_backend.dto.request.user.ChangePasswordRequest;
+import com.ballhub.ballhub_backend.security.CustomUserDetails;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -97,6 +100,21 @@ public class UserController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
         }
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<ApiResponse<?>> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            Authentication authentication) {
+
+        // Lấy ID user đang đăng nhập (Giống hệt cách bạn làm ở AddressController)
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        Integer userId = userDetails.getUserId();
+
+        // Gọi Service xử lý
+        userService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
+
+        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
     }
 
 
