@@ -1,17 +1,12 @@
 package com.ballhub.ballhub_backend.controller;
 
 import com.ballhub.ballhub_backend.dto.request.user.ChangePasswordRequest;
+import com.ballhub.ballhub_backend.dto.response.user.UserStatsResponse;
 import com.ballhub.ballhub_backend.security.CustomUserDetails;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.ballhub.ballhub_backend.dto.response.ApiResponse;
@@ -23,7 +18,7 @@ import com.ballhub.ballhub_backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("api/users")
+@RequestMapping("/api/users") // ✅ Đã thêm dấu / cho chuẩn chuẩn mực
 @RequiredArgsConstructor
 public class UserController {
 
@@ -58,9 +53,6 @@ public class UserController {
         }
     }
 
-    // ==========================================
-    // 1. API CẬP NHẬT TÊN VÀ SĐT
-    // ==========================================
     @PutMapping("/me")
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         String email = getAuthEmail();
@@ -72,9 +64,6 @@ public class UserController {
         }
     }
 
-    // ==========================================
-    // 2. API UPLOAD AVATAR
-    // ==========================================
     @PostMapping("/me/avatar")
     public ResponseEntity<?> updateAvatar(@RequestParam("file") MultipartFile file) {
         String email = getAuthEmail();
@@ -86,15 +75,10 @@ public class UserController {
         }
     }
 
-    // ==========================================
-    // 3. API ADMIN: Tìm kiếm khách hàng cho POS
-    // ==========================================
     @GetMapping("/admin/search")
     public ResponseEntity<?> searchUsersForPos(
-            // ✅ ĐÃ SỬA: Thêm required = false và defaultValue = ""
             @RequestParam(value = "keyword", required = false, defaultValue = "") String keyword) {
         try {
-            // Lấy danh sách user từ Service
             java.util.List<UserResponse> users = userService.searchUsers(keyword);
             return ResponseEntity.ok(new ApiResponse<>(true, "Tìm kiếm khách hàng thành công", users));
         } catch (Exception e) {
@@ -107,15 +91,44 @@ public class UserController {
             @RequestBody ChangePasswordRequest request,
             Authentication authentication) {
 
-        // Lấy ID user đang đăng nhập (Giống hệt cách bạn làm ở AddressController)
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         Integer userId = userDetails.getUserId();
 
-        // Gọi Service xử lý
         userService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
-
         return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
     }
 
+    // ==========================================
+    // CÁC HÀM ADMIN (Đã fix đường dẫn tránh bị lặp chữ "users")
+    // ==========================================
 
+    @PutMapping("/admin/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<String>> toggleStatus(@PathVariable Integer id) {
+        userService.toggleUserStatus(id);
+        return ResponseEntity.ok(ApiResponse.success("Đã thay đổi trạng thái tài khoản!", null));
+    }
+
+    @PutMapping("/admin/{id}/change-role")
+    public ResponseEntity<ApiResponse<String>> changeRole(@PathVariable Integer id, @RequestParam String role) {
+        userService.changeUserRole(id, role);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật quyền thành công!", null));
+    }
+
+    @PostMapping("/admin/{id}/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@PathVariable Integer id) {
+        userService.resetUserPassword(id);
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi mật khẩu mới vào email của khách hàng!", null));
+    }
+
+    @GetMapping("/admin/{id}/stats")
+    public ResponseEntity<ApiResponse<UserStatsResponse>> getUserStats(@PathVariable Integer id) {
+        UserStatsResponse stats = userService.getUserStats(id);
+        return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    @DeleteMapping("/admin/{id}")
+    public ResponseEntity<ApiResponse<String>> deleteUser(@PathVariable Integer id) {
+        userService.deleteUser(id);
+        return ResponseEntity.ok(ApiResponse.success("Đã xóa vĩnh viễn tài khoản thành công!", null));
+    }
 }

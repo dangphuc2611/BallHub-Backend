@@ -181,4 +181,32 @@ public class EmailService {
             mailSender.send(message);
         } catch (Exception e) { e.printStackTrace(); }
     }
+
+    @Async
+    public void sendResetPasswordEmail(String toEmail, String newPassword) {
+        MimeMessage message = mailSender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom("animefighterssimulator2906@gmail.com", "BallHub - Bảo mật");
+            helper.setTo(toEmail);
+            helper.setSubject("🔒 BallHub - Yêu cầu cấp lại mật khẩu");
+
+            String htmlContent =
+                    "<div style='font-family: Arial, sans-serif; padding: 30px; background-color: #f8fafc; text-align: center;'>" +
+                            "<div style='max-width: 500px; margin: auto; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);'>" +
+                            "<h2 style='color: #0f172a; margin-bottom: 20px;'>Cấp Lại Mật Khẩu</h2>" +
+                            "<p style='color: #64748b; line-height: 1.6;'>Chào bạn, quản trị viên BallHub vừa thực hiện thao tác reset mật khẩu cho tài khoản của bạn. Dưới đây là mật khẩu đăng nhập mới:</p>" +
+                            "<div style='margin: 30px 0; padding: 20px; background: #f1f5f9; border-radius: 12px; font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #10b981;'>" +
+                            newPassword +
+                            "</div>" +
+                            "<p style='color: #ef4444; font-size: 13px; font-weight: bold;'>⚠️ Vui lòng đăng nhập và đổi lại mật khẩu ngay lập tức để bảo vệ tài khoản!</p>" +
+                            "</div>" +
+                            "</div>";
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

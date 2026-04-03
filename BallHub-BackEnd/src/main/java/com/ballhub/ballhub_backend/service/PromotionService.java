@@ -109,6 +109,11 @@ public class PromotionService {
         promotion.setStartDate(request.getStartDate());
         promotion.setEndDate(request.getEndDate());
 
+        // DÒNG NÀY ĐỂ LƯU TRẠNG THÁI KÍCH HOẠT (BẬT/TẮT)
+        if (request.getStatus() != null) {
+            promotion.setStatus(request.getStatus());
+        }
+
         return mapToResponse(promotionRepository.save(promotion));
     }
 

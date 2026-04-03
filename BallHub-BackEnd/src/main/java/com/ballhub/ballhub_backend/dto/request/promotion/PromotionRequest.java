@@ -19,4 +19,6 @@ public class PromotionRequest {
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+
+    private Boolean status;
 }

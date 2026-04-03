@@ -17,6 +17,9 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     Page<Order> findByUserUserId(Integer userId, Pageable pageable);
 
+    // ✅ ĐÃ THÊM: Hàm này dùng để lấy danh sách tính thống kê
+    List<Order> findByUserUserId(Integer userId);
+
     Optional<Order> findByOrderIdAndUserUserId(Integer orderId, Integer userId);
 
     List<Order> findByStatusStatusName(String statusName);
