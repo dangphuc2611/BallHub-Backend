@@ -2,6 +2,7 @@ package com.ballhub.ballhub_backend.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,20 +45,28 @@ public class OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
+
     @Autowired
     private CartRepository cartRepository;
+
     @Autowired
     private UserAddressRepository addressRepository;
+
     @Autowired
     private PaymentMethodRepository paymentMethodRepository;
+
     @Autowired
     private OrderStatusRepository statusRepository;
+
     @Autowired
     private ProductVariantRepository variantRepository;
+
     @Autowired
     private PromotionRepository promotionRepository;
+
     @Autowired
     private UserRepository userRepository;
+
     @Autowired
     private EmailService emailService;
 
@@ -101,7 +110,12 @@ public class OrderService {
         OrderStatus finalStatus;
         BigDecimal shipFee = (request.getShippingFee() != null) ? request.getShippingFee() : BigDecimal.ZERO;
 
-        if (Boolean.TRUE.equals(request.getIsPos())) {
+        // ✅ FIX VNPAY LUÔN PENDING
+        if (request.getPaymentMethodId() != null && request.getPaymentMethodId() == 2) {
+            finalStatus = statusRepository.findByStatusName("PENDING")
+                    .orElseThrow(() -> new RuntimeException("Lỗi trạng thái PENDING"));
+        }
+        else if (Boolean.TRUE.equals(request.getIsPos())) {
             boolean isDelivery = request.getAddressId() != null ||
                     (request.getDeliveryAddress() != null && !request.getDeliveryAddress().trim().isEmpty());
 
@@ -171,14 +185,12 @@ public class OrderService {
                 discountAmt = subTotal.multiply(BigDecimal.valueOf(appliedVoucher.getDiscountPercent()))
                         .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
 
-                // ⚠️ FIX BUG: Kiểm tra giới hạn giảm tối đa (Max Discount)
                 if (appliedVoucher.getMaxDiscountAmount() != null
                         && discountAmt.compareTo(appliedVoucher.getMaxDiscountAmount()) > 0) {
-                    // Nếu tiền giảm tính ra LỚN HƠN mức tối đa cho phép -> Ép nó về bằng mức tối đa
                     discountAmt = appliedVoucher.getMaxDiscountAmount();
                 }
             } else {
-                discountAmt = appliedVoucher.getMaxDiscountAmount(); // Dành cho voucher trừ tiền mặt trực tiếp
+                discountAmt = appliedVoucher.getMaxDiscountAmount();
             }
 
             savedOrder.setDiscountAmount(discountAmt);
@@ -187,7 +199,6 @@ public class OrderService {
             promotionRepository.save(appliedVoucher);
         }
 
-        // Lưu NOTE sinh ra từ POS vào History để đọc dữ liệu
         String historyNote = "Khách hàng đặt đơn thành công";
         if (Boolean.TRUE.equals(request.getIsPos())) {
             historyNote = (request.getNote() != null && !request.getNote().trim().isEmpty())
@@ -201,10 +212,16 @@ public class OrderService {
 
         savedOrder.updateStatus(finalStatus, historyNote);
         cart.clearCart();
-        emailService.sendOrderSuccessEmail(orderOwner.getEmail(), savedOrder);
+
+        // ✅ FIX ĐA LUỒNG: LƯU TRƯỚC KHI TRẢ VỀ
+        Order finalSavedOrder = orderRepository.save(savedOrder);
         cartRepository.save(cart);
 
-        return mapToDetailResponse(orderRepository.save(savedOrder));
+        // ✅ MAP SANG DTO TRƯỚC KHI GỬI MAIL
+        OrderDetailResponse responseDto = mapToDetailResponse(finalSavedOrder);
+        emailService.sendOrderSuccessEmail(orderOwner.getEmail(), responseDto);
+
+        return responseDto;
     }
 
     @Transactional(readOnly = true)
@@ -241,24 +258,25 @@ public class OrderService {
         orderRepository.save(order);
     }
 
-    // ============================================
-    // MAPPING METHODS
-    // ============================================
     private OrderResponse mapToResponse(Order order) {
-        int totalItems = order.getItems() != null
-                ? order.getItems().stream().mapToInt(OrderItem::getQuantity).sum() : 0;
+        int totalItems = 0;
+        if (order.getItems() != null) {
+            for (OrderItem item : order.getItems()) {
+                totalItems += item.getQuantity();
+            }
+        }
+
         String deliveryAddress = (order.getAddress() != null) ? order.getAddress().getFullAddress() : null;
         BigDecimal calculatedTotal = order.getSubTotal().subtract(order.getDiscountAmount()).add(order.getShippingFee());
 
-        String displayFullName = order.getUser().getFullName();
+        String displayFullName = (order.getUser() != null) ? order.getUser().getFullName() : "N/A";
 
-        // LUẬT MỚI: Cứ là đơn POS thì lấy thẳng Tên trong Ghi chú ra hiển thị, không phân biệt quyền hạn.
         if (order.getStatusHistory() != null) {
             for (OrderStatusHistory h : order.getStatusHistory()) {
                 if (h.getNote() != null && h.getNote().startsWith("POS_CUSTOMER|")) {
                     String[] parts = h.getNote().split("\\|");
                     if (parts.length >= 2 && !parts[1].trim().isEmpty()) {
-                        displayFullName = parts[1]; // Ưu tiên tuyệt đối Tên hiển thị trên POS
+                        displayFullName = parts[1];
                     }
                     break;
                 }
@@ -267,7 +285,7 @@ public class OrderService {
 
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
-                .userId(order.getUser().getUserId())
+                .userId((order.getUser() != null) ? order.getUser().getUserId() : null)
                 .userFullName(displayFullName)
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
@@ -282,45 +300,46 @@ public class OrderService {
     }
 
     private OrderDetailResponse mapToDetailResponse(Order order) {
-        List<OrderItem> items = order.getItems() != null ? order.getItems() : new java.util.ArrayList<>();
-        List<OrderItemResponse> itemResponses = items.stream().map(this::mapToItemResponse).collect(Collectors.toList());
+        List<OrderItemResponse> itemResponses = new ArrayList<>();
+        if (order.getItems() != null) {
+            List<OrderItem> itemsList = new ArrayList<>(order.getItems());
+            for (OrderItem item : itemsList) {
+                itemResponses.add(mapToItemResponse(item));
+            }
+        }
 
-        List<OrderStatusHistory> history = order.getStatusHistory() != null ? order.getStatusHistory() : new java.util.ArrayList<>();
-        List<OrderStatusHistoryResponse> historyResponses = history.stream().map(this::mapToHistoryResponse).collect(Collectors.toList());
+        List<OrderStatusHistoryResponse> historyResponses = new ArrayList<>();
+        if (order.getStatusHistory() != null) {
+            List<OrderStatusHistory> historyList = new ArrayList<>(order.getStatusHistory());
+            for (OrderStatusHistory history : historyList) {
+                historyResponses.add(mapToHistoryResponse(history));
+            }
+        }
 
         String promoCodeUsed = (order.getPromotion() != null) ? order.getPromotion().getPromoCode() : null;
 
-        String displayFullName = order.getUser().getFullName();
-        String displayPhone = order.getUser().getPhone();
-        String displayEmail = order.getUser().getEmail();
-        String displayAddress = order.getAddress() != null ? order.getAddress().getFullAddress() : "";
+        String displayFullName = (order.getUser() != null) ? order.getUser().getFullName() : "N/A";
+        String displayPhone = (order.getUser() != null) ? order.getUser().getPhone() : "";
+        String displayEmail = (order.getUser() != null) ? order.getUser().getEmail() : "";
+        String displayAddress = (order.getAddress() != null) ? order.getAddress().getFullAddress() : "";
 
-        // Móc dữ liệu gõ tay từ trong Lịch Sử (nếu là đơn POS)
         if (order.getStatusHistory() != null) {
             for (OrderStatusHistory h : order.getStatusHistory()) {
                 if (h.getNote() != null && h.getNote().startsWith("POS_CUSTOMER|")) {
                     String[] parts = h.getNote().split("\\|");
+                    boolean isAdmin = (order.getUser() != null) && "ADMIN".equalsIgnoreCase(order.getUser().getRole());
 
-                    boolean isAdmin = "ADMIN".equalsIgnoreCase(order.getUser().getRole());
-
-                    // Lấy Tên hiển thị gõ tay
                     if (parts.length >= 2 && !parts[1].trim().isEmpty() && !parts[1].equals("Khách lẻ")) {
                         displayFullName = parts[1];
                     }
-
-                    // Lấy Số điện thoại gõ tay
                     if (parts.length >= 3 && !parts[2].equals("Trống")) {
                         displayPhone = parts[2];
                     } else if (isAdmin) {
                         displayPhone = "Mua tại quầy";
                     }
-
-                    // Chỉ Ẩn Email nếu đây là tài khoản Admin (tức là Thu ngân mua hộ khách vãng lai)
                     if (isAdmin) {
                         displayEmail = "";
                     }
-
-                    // Móc địa chỉ gõ tay (Chỉ tồn tại nếu họ có GÕ ĐỊA CHỈ vào ô text box)
                     if (order.getAddress() == null) {
                         if (parts.length >= 4 && parts[3].startsWith("Giao đến: ")) {
                             displayAddress = parts[3].replace("Giao đến: ", "").split(" - Ghi chú:")[0];
@@ -331,14 +350,13 @@ public class OrderService {
             }
         }
 
-        // Ưu tiên Sổ địa chỉ (Nếu có)
         if (order.getAddress() != null && order.getAddress().getUser() != null) {
             displayEmail = order.getAddress().getUser().getEmail();
         }
 
         return OrderDetailResponse.builder()
                 .orderId(order.getOrderId())
-                .userId(order.getUser().getUserId())
+                .userId((order.getUser() != null) ? order.getUser().getUserId() : null)
                 .userFullName(displayFullName)
                 .userEmail(displayEmail)
                 .userPhone(displayPhone)
@@ -360,25 +378,29 @@ public class OrderService {
         ProductVariant variant = item.getVariant();
         String imageUrl = null;
 
-        if (variant.getProduct() != null && variant.getProduct().getImages() != null) {
-            imageUrl = variant.getProduct().getImages().stream()
-                    .filter(img -> img.getIsMain() != null && img.getIsMain())
-                    .findFirst()
-                    .map(img -> img.getImageUrl())
-                    .orElse(null);
+        // ✅ FIX LỖI ẢNH HIBERNATE ILLEGAL POP
+        try {
+            if (variant != null && variant.getProduct() != null && variant.getProduct().getImages() != null) {
+                List<com.ballhub.ballhub_backend.entity.ProductImage> images = new ArrayList<>(variant.getProduct().getImages());
+                for (var img : images) {
+                    if (Boolean.TRUE.equals(img.getIsMain())) {
+                        imageUrl = img.getImageUrl();
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Cảnh báo: Bỏ qua lỗi Hibernate Proxy tải ảnh: " + e.getMessage());
         }
 
-        String promotionName = null;
-        if (item.getAppliedPromotion() != null) {
-            promotionName = item.getAppliedPromotion().getPromotionName();
-        }
+        String promotionName = (item.getAppliedPromotion() != null) ? item.getAppliedPromotion().getPromotionName() : null;
 
         return OrderItemResponse.builder()
                 .orderItemId(item.getOrderItemId())
-                .variantId(variant.getVariantId())
-                .productName(variant.getProduct() != null ? variant.getProduct().getProductName() : null)
-                .sizeName(variant.getSize() != null ? variant.getSize().getSizeName() : null)
-                .colorName(variant.getColor() != null ? variant.getColor().getColorName() : null)
+                .variantId((variant != null) ? variant.getVariantId() : null)
+                .productName((variant != null && variant.getProduct() != null) ? variant.getProduct().getProductName() : "Sản phẩm không rõ")
+                .sizeName((variant != null && variant.getSize() != null) ? variant.getSize().getSizeName() : "N/A")
+                .colorName((variant != null && variant.getColor() != null) ? variant.getColor().getColorName() : "N/A")
                 .quantity(item.getQuantity())
                 .originalPrice(item.getOriginalPrice())
                 .discountPercent(item.getDiscountPercent())
@@ -403,10 +425,6 @@ public class OrderService {
                 .note(displayNote)
                 .build();
     }
-
-    // ============================================
-    // ADMIN METHODS
-    // ============================================
 
     @Transactional(readOnly = true)
     public Page<OrderResponse> getAllOrders(Pageable pageable) {
@@ -440,7 +458,7 @@ public class OrderService {
             }
         }
 
-        order.updateStatus(newStatus, note != null ? note : "Admin cập nhật trạng thái");
+        order.updateStatus(newStatus, (note != null) ? note : "Admin cập nhật trạng thái");
         Order updated = orderRepository.save(order);
 
         return mapToDetailResponse(updated);
@@ -484,16 +502,37 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getNewestOrders() {
-        return orderRepository.findAll(org.springframework.data.domain.Sort.by("orderDate").descending())
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        List<OrderResponse> responses = new ArrayList<>();
+        for (Order o : orderRepository.findAll(org.springframework.data.domain.Sort.by("orderDate").descending())) {
+            responses.add(mapToResponse(o));
+        }
+        return responses;
     }
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getOrdersByStatus(String statusName) {
-        return orderRepository.findByStatusStatusName(statusName).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        List<OrderResponse> responses = new ArrayList<>();
+        for (Order o : orderRepository.findByStatusStatusName(statusName)) {
+            responses.add(mapToResponse(o));
+        }
+        return responses;
     }
+    // ==========================================
+    // ✅ HÀM MỚI THÊM ĐỂ CHỐT ĐƠN VNPAY
+    // ==========================================
+    @Transactional
+    public void processVnPaySuccess(Integer orderId, boolean isPos) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null) {
+            // Nếu bán tại quầy -> DELIVERED. Nếu mua online -> CONFIRMED
+            String targetStatusName = isPos ? "DELIVERED" : "CONFIRMED";
+            OrderStatus targetStatus = statusRepository.findByStatusName(targetStatusName).orElse(null);
+
+            if (targetStatus != null) {
+                order.updateStatus(targetStatus, "Đã thanh toán VNPAY (Tự động cập nhật)");
+                orderRepository.save(order);
+            }
+        }
+    }
+
 }

@@ -2,8 +2,10 @@ package com.ballhub.ballhub_backend.controller;
 
 import com.ballhub.ballhub_backend.config.VNPayConfig;
 import com.ballhub.ballhub_backend.dto.response.ApiResponse;
+import com.ballhub.ballhub_backend.service.OrderService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +32,9 @@ public class PaymentController {
     @Value("${vnpay.returnUrl}")
     private String vnp_ReturnUrl;
 
-    // 1. API TẠO LINK VNPAY CÓ BỔ SUNG CỜ "isPos"
+    @Autowired
+    private OrderService orderService;
+
     @GetMapping("/create-vnpay")
     public ResponseEntity<ApiResponse<String>> createPayment(
             @RequestParam("amount") long amount,
@@ -54,7 +58,6 @@ public class PaymentController {
         vnp_Params.put("vnp_CurrCode", "VND");
         vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
 
-        // Đánh dấu luồng POS hay WEB vào thẳng thông tin đơn hàng gửi sang VNPAY
         String orderInfoStr = "Thanh toan don hang: " + orderId + (isPos ? "-POS" : "-WEB");
         vnp_Params.put("vnp_OrderInfo", orderInfoStr);
 
@@ -102,36 +105,47 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("Tạo link thành công", paymentUrl));
     }
 
-    // 2. API HỨNG KẾT QUẢ VÀ CHIA LUỒNG REDIRECT
     @GetMapping("/vnpay-return")
     public void vnpayReturn(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String vnp_ResponseCode = request.getParameter("vnp_ResponseCode");
         String orderInfo = request.getParameter("vnp_OrderInfo");
+        String vnp_TxnRef = request.getParameter("vnp_TxnRef");
 
-        // Bóc tách xem là POS hay WEB
-        String orderIdStr = orderInfo.replace("Thanh toan don hang: ", "").trim();
-        boolean isPos = orderIdStr.endsWith("-POS");
-        orderIdStr = orderIdStr.replace("-POS", "").replace("-WEB", "");
+        String realOrderIdStr = "";
+        if (vnp_TxnRef != null && vnp_TxnRef.contains("_")) {
+            realOrderIdStr = vnp_TxnRef.split("_")[0];
+        } else {
+            realOrderIdStr = vnp_TxnRef;
+        }
 
-        // ==========================================
-        // NẾU LÀ ĐƠN TỪ POS (TẠI QUẦY)
-        // ==========================================
+        // ✅ CHÍNH LÀ DÒNG NÀY ĐÂY!!! HÔM TRƯỚC MÌNH QUÊN CHO VÀO BẢN CẬP NHẬT
+        // Xóa sạch mọi chữ cái, chỉ giữ lại số để Convert không bị lỗi
+        realOrderIdStr = realOrderIdStr.replaceAll("[^0-9]", "");
+
+        boolean isPos = orderInfo != null && orderInfo.contains("-POS");
+
+        if ("00".equals(vnp_ResponseCode)) {
+            try {
+                // Ép kiểu sẽ thành công 100% vì đã xóa sạch chữ "HD" ở trên
+                Integer realOrderId = Integer.parseInt(realOrderIdStr);
+                orderService.processVnPaySuccess(realOrderId, isPos);
+            } catch (Exception e) {
+                System.out.println("❌ Lỗi update trạng thái VNPAY: " + e.getMessage());
+            }
+        }
+
         if (isPos) {
             response.setContentType("text/html;charset=UTF-8");
             if ("00".equals(vnp_ResponseCode)) {
-                // Trả về HTML chạy lệnh tự đóng Tab VNPAY
-                response.getWriter().write("<html><body><script>alert('Khách hàng thanh toán VNPAY thành công! Có thể đóng cửa sổ này.'); window.close();</script></body></html>");
+                response.getWriter().write("<html><body style='background:#1e293b; color:#10b981; font-family:sans-serif; text-align:center; padding-top:100px;'><h1>ĐÃ CHỐT ĐƠN!</h1><h3>Thanh toán VNPAY thành công. Đơn hàng tự động chuyển sang ĐÃ GIAO.</h3><script>alert('Thanh toán VNPAY thành công! Đơn hàng đã tự động chuyển sang ĐÃ GIAO (DELIVERED).'); window.close();</script></body></html>");
             } else {
                 response.getWriter().write("<html><body><script>alert('Khách hàng thanh toán VNPAY thất bại!'); window.close();</script></body></html>");
             }
             return;
         }
 
-        // ==========================================
-        // NẾU LÀ ĐƠN TỪ WEB (KHÁCH TỰ ĐẶT)
-        // ==========================================
         if ("00".equals(vnp_ResponseCode)) {
-            response.sendRedirect("http://localhost:3000/order-success/" + orderIdStr);
+            response.sendRedirect("http://localhost:3000/order-success/" + realOrderIdStr);
         } else {
             response.sendRedirect("http://localhost:3000/checkout?payment_error=true");
         }

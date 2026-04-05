@@ -80,6 +80,8 @@ public class SecurityConfig {
                         // 2. AUTHENTICATION (Đăng nhập, Đăng ký, Quên mật khẩu, Google)
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        .requestMatchers("/api/payment/**").permitAll()
+
                         // 3. XEM SẢN PHẨM (Ai cũng xem được)
                         .requestMatchers(HttpMethod.GET,
                                 "/api/products/**",
