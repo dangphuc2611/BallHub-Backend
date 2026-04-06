@@ -5,7 +5,6 @@ import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -24,6 +23,10 @@ public class CreateProductRequest {
 
     @NotNull(message = "Brand không được để trống")
     private Integer brandId;
+
+    // Optional — Chất liệu và Kiểu dáng
+    private Integer materialId;
+    private Integer styleId;
 
     @NotEmpty(message = "Phải có ít nhất 1 variant")
     @Valid

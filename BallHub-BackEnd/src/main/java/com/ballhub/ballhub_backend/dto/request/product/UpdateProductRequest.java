@@ -1,12 +1,9 @@
 package com.ballhub.ballhub_backend.dto.request.product;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -24,6 +21,9 @@ public class UpdateProductRequest {
 
     @NotNull(message = "Brand không được để trống")
     private Integer brandId;
+
+    private Integer materialId;
+    private Integer styleId;
 
     private Boolean status;
 }

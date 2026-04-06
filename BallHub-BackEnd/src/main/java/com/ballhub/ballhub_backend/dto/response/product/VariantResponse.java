@@ -15,6 +15,8 @@ public class VariantResponse {
 
     private Integer variantId;
     private Integer productId;
+    private String productName;
+    private String productImage;
     private Integer sizeId;
     private String sizeName;
     private Integer colorId;

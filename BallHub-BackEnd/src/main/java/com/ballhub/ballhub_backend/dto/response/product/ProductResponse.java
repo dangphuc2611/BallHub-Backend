@@ -21,6 +21,8 @@ public class ProductResponse {
     private String categoryName;
     private Integer brandId;
     private String brandName;
+    private String materialName;
+    private String styleName;
     private String mainImage;
 
     // --- BỔ SUNG TRƯỜNG CHO FLASH SALE ---

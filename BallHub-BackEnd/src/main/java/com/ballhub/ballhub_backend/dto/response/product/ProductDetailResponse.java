@@ -25,6 +25,12 @@ public class ProductDetailResponse {
     private Integer brandId;
     private String brandName;
 
+    private Integer materialId;
+    private String materialName;
+
+    private Integer styleId;
+    private String styleName;
+
     private List<VariantResponse> variants;
     private List<ProductImageResponse> images;
 

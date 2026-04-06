@@ -179,11 +179,11 @@ public class ProductController {
     // ADMIN - Add variant to product
     @PostMapping("/admin/products/{id}/variants")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ProductDetailResponse>> addVariant(
+    public ResponseEntity<ApiResponse<VariantResponse>> addVariant(
             @PathVariable Integer id,
             @Valid @RequestBody CreateVariantRequest request) {
-        // Implementation in service
-        return ResponseEntity.ok(ApiResponse.success("Thêm variant thành công", null));
+        VariantResponse variant = productService.addVariant(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Thêm variant thành công", variant));
     }
 
     // ADMIN - Update variant
@@ -202,5 +202,24 @@ public class ProductController {
     public ResponseEntity<ApiResponse<?>> deleteVariant(@PathVariable Integer id) {
         productService.deleteVariant(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa variant thành công", null));
+    }
+
+    // ADMIN - List all variants with pagination
+    @GetMapping("/admin/variants")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<VariantResponse>>> listAllVariants(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "variantId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<VariantResponse> variants = productService.getAllVariants(pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.of(variants)));
     }
 }

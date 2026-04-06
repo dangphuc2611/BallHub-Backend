@@ -35,6 +35,14 @@ public class Product {
     @JoinColumn(name = "BrandID")
     private Brand brand;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MaterialID")
+    private Material material;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "StyleID")
+    private Style style;
+
     @Column(name = "Status")
     private Boolean status = true;
 

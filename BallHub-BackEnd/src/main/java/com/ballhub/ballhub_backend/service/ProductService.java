@@ -6,6 +6,7 @@ import com.ballhub.ballhub_backend.exception.BadRequestException;
 import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;
 import com.ballhub.ballhub_backend.entity.*;
 import com.ballhub.ballhub_backend.repository.*;
+import com.ballhub.ballhub_backend.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,9 +43,9 @@ public class ProductService {
         @Autowired
         private ProductImageRepository imageRepository;
         @Autowired
-        private FavoriteRepository favoriteRepository;
+        private MaterialRepository materialRepository;
         @Autowired
-        private UserRepository userRepository;
+        private StyleRepository styleRepository;
 
         @Transactional(readOnly = true)
         public Page<ProductResponse> getAllProducts(Pageable pageable) {
@@ -109,11 +110,22 @@ public class ProductService {
                 Brand brand = brandRepository.findById(request.getBrandId())
                                 .orElseThrow(() -> new ResourceNotFoundException("Thương hiệu không tồn tại"));
 
+                Material material = null;
+                if (request.getMaterialId() != null) {
+                        material = materialRepository.findById(request.getMaterialId()).orElse(null);
+                }
+                Style style = null;
+                if (request.getStyleId() != null) {
+                        style = styleRepository.findById(request.getStyleId()).orElse(null);
+                }
+
                 Product product = Product.builder()
                                 .productName(request.getProductName())
                                 .description(request.getDescription())
                                 .category(category)
                                 .brand(brand)
+                                .material(material)
+                                .style(style)
                                 .status(true)
                                 .build();
 
@@ -138,6 +150,17 @@ public class ProductService {
                 product.setDescription(request.getDescription());
                 product.setCategory(category);
                 product.setBrand(brand);
+
+                if (request.getMaterialId() != null) {
+                        Integer matId = request.getMaterialId();
+                        Material material = materialRepository.findById(matId).orElse(null);
+                        product.setMaterial(material);
+                }
+                if (request.getStyleId() != null) {
+                        Integer styId = request.getStyleId();
+                        Style style = styleRepository.findById(styId).orElse(null);
+                        product.setStyle(style);
+                }
 
                 if (request.getStatus() != null) {
                         product.setStatus(request.getStatus());
@@ -176,6 +199,39 @@ public class ProductService {
                                         .build();
                         imageRepository.save(image);
                 }
+        }
+
+        public VariantResponse addVariant(Integer productId, CreateVariantRequest request) {
+                Product product = productRepository.findById(productId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+
+                Size size = sizeRepository.findById(request.getSizeId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Size không tồn tại"));
+                Color color = colorRepository.findById(request.getColorId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Color không tồn tại"));
+
+                variantRepository.findByProductAndSizeAndColor(
+                                product.getProductId(), size.getSizeId(), color.getColorId()).ifPresent(v -> {
+                                        throw new BadRequestException("Variant này đã tồn tại");
+                                });
+
+                String sku = request.getSku();
+                if (sku == null || sku.trim().isEmpty()) {
+                        sku = generateSKU(product, size, color);
+                }
+
+                if (variantRepository.existsBySku(sku)) {
+                        throw new BadRequestException("SKU đã tồn tại: " + sku);
+                }
+
+                ProductVariant variant = ProductVariant.builder()
+                                .product(product).size(size).color(color)
+                                .price(request.getPrice())
+                                .stockQuantity(request.getStockQuantity())
+                                .sku(sku).status(true).build();
+
+                ProductVariant saved = variantRepository.save(variant);
+                return mapToVariantResponse(saved);
         }
 
         private void createVariant(Product product, CreateVariantRequest request) {
@@ -239,6 +295,18 @@ public class ProductService {
                 variantRepository.save(variant);
         }
 
+        public void hardDeleteVariant(Integer variantId) {
+                ProductVariant variant = variantRepository.findById(variantId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Variant không tồn tại"));
+                variantRepository.delete(variant);
+        }
+
+        @Transactional(readOnly = true)
+        public Page<VariantResponse> getAllVariants(Pageable pageable) {
+                return variantRepository.findAll(pageable)
+                                .map(this::mapToVariantResponse);
+        }
+
         // ==========================================================
         // MAPPING DATA CHO FRONTEND KÈM THEO LOGIC TÍNH FLASH SALE
         // ==========================================================
@@ -282,9 +350,8 @@ public class ProductService {
 
                         if (minOriginalPrice.compareTo(BigDecimal.ZERO) > 0
                                         && minOriginalPrice.compareTo(minPrice) > 0) {
-                                discountPct = minOriginalPrice.subtract(minPrice)
-                                                .divide(minOriginalPrice, 2, RoundingMode.HALF_UP)
-                                                .multiply(new BigDecimal(100)).intValue();
+                                discountPct = (int) ((((minOriginalPrice.doubleValue() - minPrice.doubleValue())
+                                                / minOriginalPrice.doubleValue())) * 100);
                         }
                 }
 
@@ -302,6 +369,9 @@ public class ProductService {
                                                 : null)
                                 .brandId(product.getBrand() != null ? product.getBrand().getBrandId() : null)
                                 .brandName(product.getBrand() != null ? product.getBrand().getBrandName() : null)
+                                .materialName(product.getMaterial() != null ? product.getMaterial().getMaterialName()
+                                                : null)
+                                .styleName(product.getStyle() != null ? product.getStyle().getStyleName() : null)
                                 .mainImage(mainImage)
                                 .minOriginalPrice(minOriginalPrice) // Trả về giá gốc
                                 .maxOriginalPrice(maxOriginalPrice) // Trả về giá gốc
@@ -387,6 +457,12 @@ public class ProductService {
                                 .categoryName(product.getCategory().getCategoryName())
                                 .brandId(product.getBrand().getBrandId())
                                 .brandName(product.getBrand().getBrandName())
+                                .materialId(product.getMaterial() != null ? product.getMaterial().getMaterialId()
+                                                : null)
+                                .materialName(product.getMaterial() != null ? product.getMaterial().getMaterialName()
+                                                : null)
+                                .styleId(product.getStyle() != null ? product.getStyle().getStyleId() : null)
+                                .styleName(product.getStyle() != null ? product.getStyle().getStyleName() : null)
                                 .variants(variants)
                                 .images(images)
                                 .sizeOptions(sizeOptions)
@@ -402,6 +478,14 @@ public class ProductService {
                 return VariantResponse.builder()
                                 .variantId(variant.getVariantId())
                                 .productId(variant.getProduct().getProductId())
+                                .productName(variant.getProduct().getProductName())
+                                .productImage(variant.getProduct().getImages().stream()
+                                                .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
+                                                .findFirst()
+                                                .map(img -> img.getImageUrl())
+                                                .orElse(variant.getProduct().getImages().isEmpty() ? null
+                                                                : variant.getProduct().getImages().get(0)
+                                                                                .getImageUrl()))
                                 .sizeId(variant.getSize().getSizeId())
                                 .sizeName(variant.getSize().getSizeName())
                                 .colorId(variant.getColor().getColorId())
