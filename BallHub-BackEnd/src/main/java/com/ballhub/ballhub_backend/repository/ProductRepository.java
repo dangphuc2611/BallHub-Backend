@@ -93,49 +93,49 @@ public interface ProductRepository
     // FILTER + SORT + PAGING (SHOP CORE)
     // =====================================================
 
+    // ✅ BẢN VÁ: Loại bỏ GROUP BY, dùng DISTINCT và Subquery để Sort tránh lỗi SQL Server
     @Query(value = """
     SELECT p.* FROM Products p
-    JOIN ProductVariants v ON p.ProductID = v.ProductID
-    JOIN Categories c ON p.CategoryID = c.CategoryID
-    JOIN Brands b ON p.BrandID = b.BrandID
-    JOIN Sizes s ON v.SizeID = s.SizeID
     WHERE p.Status = 1
-      AND v.Status = 1
-      AND v.StockQuantity > 0
-
-      AND (:categories IS NULL OR c.CategoryName IN (:categories))
-      AND (:teams IS NULL OR b.BrandName IN (:teams))
-      AND (:sizes IS NULL OR s.SizeName IN (:sizes))
-
-      AND (:minPrice IS NULL OR COALESCE(v.DiscountPrice, v.Price) >= :minPrice)
-      AND (:maxPrice IS NULL OR COALESCE(v.DiscountPrice, v.Price) <= :maxPrice)
-
-      AND (
-         :search IS NULL
-         OR LOWER(p.ProductName) LIKE LOWER(CONCAT('%', :search, '%'))
-         OR LOWER(p.Description) LIKE LOWER(CONCAT('%', :search, '%'))
-         OR LOWER(c.CategoryName) LIKE LOWER(CONCAT('%', :search, '%'))
-         OR LOWER(b.BrandName) LIKE LOWER(CONCAT('%', :search, '%'))
+      AND p.ProductID IN (
+          SELECT DISTINCT p_sub.ProductID 
+          FROM Products p_sub
+          JOIN ProductVariants v ON p_sub.ProductID = v.ProductID
+          JOIN Categories c ON p_sub.CategoryID = c.CategoryID
+          JOIN Brands b ON p_sub.BrandID = b.BrandID
+          JOIN Sizes s ON v.SizeID = s.SizeID
+          WHERE v.Status = 1
+            AND v.StockQuantity > 0
+            
+            AND (:categories IS NULL OR c.CategoryName IN (:categories))
+            AND (:teams IS NULL OR b.BrandName IN (:teams))
+            AND (:sizes IS NULL OR s.SizeName IN (:sizes))
+            
+            AND (:minPrice IS NULL OR COALESCE(v.DiscountPrice, v.Price) >= :minPrice)
+            AND (:maxPrice IS NULL OR COALESCE(v.DiscountPrice, v.Price) <= :maxPrice)
+            
+            AND (
+               :search IS NULL
+               OR LOWER(p_sub.ProductName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(p_sub.Description) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(c.CategoryName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(b.BrandName) LIKE LOWER(CONCAT('%', :search, '%'))
+            )
+            
+            AND (:isSale = 0 OR p_sub.ProductID IN (
+                SELECT v_sale.ProductID FROM ProductVariants v_sale
+                JOIN VariantPromotions vp ON v_sale.VariantID = vp.VariantID
+                JOIN Promotions pr ON vp.PromotionID = pr.PromotionID
+                WHERE pr.Status = 1 AND pr.PromoCode IS NULL
+                  AND (pr.StartDate IS NULL OR pr.StartDate <= CURRENT_TIMESTAMP)
+                  AND (pr.EndDate IS NULL OR pr.EndDate >= CURRENT_TIMESTAMP)
+                  AND pr.DiscountPercent > 0
+            ))
       )
-      
-      -- LOGIC LỌC HÀNG KHUYẾN MÃI (NẾU isSale = 1)
-      AND (:isSale = 0 OR p.ProductID IN (
-          SELECT v_sub.ProductID FROM ProductVariants v_sub
-          JOIN VariantPromotions vp ON v_sub.VariantID = vp.VariantID
-          JOIN Promotions pr ON vp.PromotionID = pr.PromotionID
-          WHERE pr.Status = 1 AND pr.PromoCode IS NULL
-            AND (pr.StartDate IS NULL OR pr.StartDate <= CURRENT_TIMESTAMP)
-            AND (pr.EndDate IS NULL OR pr.EndDate >= CURRENT_TIMESTAMP)
-            AND pr.DiscountPercent > 0
-      ))
-
-    GROUP BY p.ProductID, p.ProductName, p.Description,
-             p.CategoryID, p.BrandID, p.Status, p.CreatedAt
-
     ORDER BY
       CASE WHEN :sort = 'new' THEN p.CreatedAt END DESC,
-      CASE WHEN :sort = 'price_asc' THEN MIN(COALESCE(v.DiscountPrice, v.Price)) END ASC,
-      CASE WHEN :sort = 'price_desc' THEN MIN(COALESCE(v.DiscountPrice, v.Price)) END DESC,
+      CASE WHEN :sort = 'price_asc' THEN (SELECT MIN(COALESCE(v2.DiscountPrice, v2.Price)) FROM ProductVariants v2 WHERE v2.ProductID = p.ProductID AND v2.Status = 1 AND v2.StockQuantity > 0) END ASC,
+      CASE WHEN :sort = 'price_desc' THEN (SELECT MIN(COALESCE(v2.DiscountPrice, v2.Price)) FROM ProductVariants v2 WHERE v2.ProductID = p.ProductID AND v2.Status = 1 AND v2.StockQuantity > 0) END DESC,
       p.ProductID DESC
     """,
             countQuery = """
