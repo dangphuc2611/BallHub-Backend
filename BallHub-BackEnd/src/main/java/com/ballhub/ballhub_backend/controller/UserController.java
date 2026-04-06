@@ -14,6 +14,12 @@ import com.ballhub.ballhub_backend.dto.response.user.UserResponse;
 import com.ballhub.ballhub_backend.dto.request.user.UpdateProfileRequest;
 import com.ballhub.ballhub_backend.entity.User;
 import com.ballhub.ballhub_backend.service.UserService;
+import com.ballhub.ballhub_backend.service.AddressService;
+import com.ballhub.ballhub_backend.dto.response.user.AddressResponse;
+import com.ballhub.ballhub_backend.dto.request.user.CreateAddressRequest;
+import com.ballhub.ballhub_backend.dto.request.user.UpdateAddressRequest;
+import jakarta.validation.Valid;
+import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
     private final UserService userService;
+    private final AddressService addressService;
 
     private String getAuthEmail() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -96,6 +103,54 @@ public class UserController {
 
         userService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
+    }
+
+    // ==========================================
+    // CÁC HÀM ĐỊA CHỈ (ADDRESSES) CỦA NGƯỜI DÙNG
+    // ==========================================
+
+    @GetMapping("/me/addresses")
+    public ResponseEntity<ApiResponse<List<AddressResponse>>> getMyAddresses(Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        List<AddressResponse> addresses = addressService.getMyAddresses(userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(addresses));
+    }
+
+    @PostMapping("/me/addresses")
+    public ResponseEntity<ApiResponse<AddressResponse>> createAddress(
+            @Valid @RequestBody CreateAddressRequest request,
+            Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        AddressResponse address = addressService.createAddress(userDetails.getUserId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Tạo địa chỉ thành công", address));
+    }
+
+    @PutMapping("/me/addresses/{id}")
+    public ResponseEntity<ApiResponse<AddressResponse>> updateAddress(
+            @PathVariable Integer id,
+            @Valid @RequestBody UpdateAddressRequest request,
+            Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        AddressResponse address = addressService.updateAddress(userDetails.getUserId(), id, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật địa chỉ thành công", address));
+    }
+
+    @DeleteMapping("/me/addresses/{id}")
+    public ResponseEntity<ApiResponse<?>> deleteAddress(
+            @PathVariable Integer id,
+            Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        addressService.deleteAddress(userDetails.getUserId(), id);
+        return ResponseEntity.ok(ApiResponse.success("Xóa địa chỉ thành công", null));
+    }
+
+    @PutMapping("/me/addresses/{id}/default")
+    public ResponseEntity<ApiResponse<AddressResponse>> setDefaultAddress(
+            @PathVariable Integer id,
+            Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        AddressResponse address = addressService.setDefaultAddress(userDetails.getUserId(), id);
+        return ResponseEntity.ok(ApiResponse.success("Đã đặt làm địa chỉ mặc định", address));
     }
 
     // ==========================================

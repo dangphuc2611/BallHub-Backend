@@ -79,6 +79,7 @@ public class SecurityConfig {
 
                         // 2. AUTHENTICATION (Đăng nhập, Đăng ký, Quên mật khẩu, Google)
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/payment/**").permitAll()
 
                         .requestMatchers("/api/payment/**").permitAll()
 
@@ -87,14 +88,14 @@ public class SecurityConfig {
                                 "/api/products/**",
                                 "/api/categories/**",
                                 "/api/brands/**",
-                                "/api/promotions/**").permitAll()
+                                "/api/promotions/**")
+                        .permitAll()
 
                         // 4. CHỨC NĂNG CỦA ADMIN
                         .requestMatchers("/api/admin/**", "/api/stats/**").hasRole("ADMIN")
 
                         // 5. CÁC API CÒN LẠI BẮT BUỘC PHẢI ĐĂNG NHẬP (Giỏ hàng, Đặt hàng, Profile...)
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

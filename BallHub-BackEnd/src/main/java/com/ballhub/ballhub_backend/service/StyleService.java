@@ -1,6 +1,6 @@
 package com.ballhub.ballhub_backend.service;
 
-import com.ballhub.ballhub_backend.dto.reponse.product.StyleResponse;
+import com.ballhub.ballhub_backend.dto.response.product.StyleResponse;
 import com.ballhub.ballhub_backend.dto.request.product.StyleRequest;
 import com.ballhub.ballhub_backend.entity.Style;
 import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;

@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -12,11 +11,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ballhub.ballhub_backend.dto.request.order.CreateOrderRequest;
 import com.ballhub.ballhub_backend.dto.response.order.OrderDetailResponse;
 import com.ballhub.ballhub_backend.dto.response.order.OrderItemResponse;
 import com.ballhub.ballhub_backend.dto.response.order.OrderResponse;
 import com.ballhub.ballhub_backend.dto.response.order.OrderStatusHistoryResponse;
-import com.ballhub.ballhub_backend.dto.request.order.CreateOrderRequest;
 import com.ballhub.ballhub_backend.entity.Cart;
 import com.ballhub.ballhub_backend.entity.CartItem;
 import com.ballhub.ballhub_backend.entity.Order;
@@ -114,8 +113,7 @@ public class OrderService {
         if (request.getPaymentMethodId() != null && request.getPaymentMethodId() == 2) {
             finalStatus = statusRepository.findByStatusName("PENDING")
                     .orElseThrow(() -> new RuntimeException("Lỗi trạng thái PENDING"));
-        }
-        else if (Boolean.TRUE.equals(request.getIsPos())) {
+        } else if (Boolean.TRUE.equals(request.getIsPos())) {
             boolean isDelivery = request.getAddressId() != null ||
                     (request.getDeliveryAddress() != null && !request.getDeliveryAddress().trim().isEmpty());
 
@@ -267,7 +265,8 @@ public class OrderService {
         }
 
         String deliveryAddress = (order.getAddress() != null) ? order.getAddress().getFullAddress() : null;
-        BigDecimal calculatedTotal = order.getSubTotal().subtract(order.getDiscountAmount()).add(order.getShippingFee());
+        BigDecimal calculatedTotal = order.getSubTotal().subtract(order.getDiscountAmount())
+                .add(order.getShippingFee());
 
         String displayFullName = (order.getUser() != null) ? order.getUser().getFullName() : "N/A";
 
@@ -381,7 +380,8 @@ public class OrderService {
         // ✅ FIX LỖI ẢNH HIBERNATE ILLEGAL POP
         try {
             if (variant != null && variant.getProduct() != null && variant.getProduct().getImages() != null) {
-                List<com.ballhub.ballhub_backend.entity.ProductImage> images = new ArrayList<>(variant.getProduct().getImages());
+                List<com.ballhub.ballhub_backend.entity.ProductImage> images = new ArrayList<>(
+                        variant.getProduct().getImages());
                 for (var img : images) {
                     if (Boolean.TRUE.equals(img.getIsMain())) {
                         imageUrl = img.getImageUrl();
@@ -393,12 +393,14 @@ public class OrderService {
             System.out.println("Cảnh báo: Bỏ qua lỗi Hibernate Proxy tải ảnh: " + e.getMessage());
         }
 
-        String promotionName = (item.getAppliedPromotion() != null) ? item.getAppliedPromotion().getPromotionName() : null;
+        String promotionName = (item.getAppliedPromotion() != null) ? item.getAppliedPromotion().getPromotionName()
+                : null;
 
         return OrderItemResponse.builder()
                 .orderItemId(item.getOrderItemId())
                 .variantId((variant != null) ? variant.getVariantId() : null)
-                .productName((variant != null && variant.getProduct() != null) ? variant.getProduct().getProductName() : "Sản phẩm không rõ")
+                .productName((variant != null && variant.getProduct() != null) ? variant.getProduct().getProductName()
+                        : "Sản phẩm không rõ")
                 .sizeName((variant != null && variant.getSize() != null) ? variant.getSize().getSizeName() : "N/A")
                 .colorName((variant != null && variant.getColor() != null) ? variant.getColor().getColorName() : "N/A")
                 .quantity(item.getQuantity())
@@ -517,6 +519,7 @@ public class OrderService {
         }
         return responses;
     }
+
     // ==========================================
     // ✅ HÀM MỚI THÊM ĐỂ CHỐT ĐƠN VNPAY
     // ==========================================
