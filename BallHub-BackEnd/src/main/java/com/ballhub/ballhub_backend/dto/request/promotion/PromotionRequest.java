@@ -3,6 +3,7 @@ package com.ballhub.ballhub_backend.dto.request.promotion;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data // Tự động tạo Getter/Setter
 public class PromotionRequest {
@@ -21,4 +22,6 @@ public class PromotionRequest {
     private LocalDateTime endDate;
 
     private Boolean status;
+
+    private List<Integer> productIds;
 }

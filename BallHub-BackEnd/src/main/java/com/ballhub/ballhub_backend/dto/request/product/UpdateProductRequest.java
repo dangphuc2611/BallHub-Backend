@@ -25,5 +25,7 @@ public class UpdateProductRequest {
     private Integer materialId;
     private Integer styleId;
 
+    private Integer discountPercent;
+
     private Boolean status;
 }

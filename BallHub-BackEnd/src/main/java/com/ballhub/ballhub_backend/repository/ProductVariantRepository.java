@@ -13,7 +13,13 @@ import java.util.Optional;
 @Repository
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, Integer>, JpaSpecificationExecutor<ProductVariant> {
 
+    // ✅ BỔ SUNG HÀM NÀY: Để lấy toàn bộ biến thể từ danh sách ID sản phẩm
+    // Dùng cho logic PromotionService.applyPromotionToProducts
+    List<ProductVariant> findByProduct_ProductIdIn(List<Integer> productIds);
+
     List<ProductVariant> findByProductProductIdAndStatusTrue(Integer productId);
+
+    List<ProductVariant> findByProduct_ProductId(Integer productId);
 
     Optional<ProductVariant> findByVariantIdAndStatusTrue(Integer variantId);
 

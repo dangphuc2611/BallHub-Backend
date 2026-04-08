@@ -28,6 +28,8 @@ public class CreateProductRequest {
     private Integer materialId;
     private Integer styleId;
 
+    private Integer discountPercent;
+
     @NotEmpty(message = "Phải có ít nhất 1 variant")
     @Valid
     private List<CreateVariantRequest> variants;

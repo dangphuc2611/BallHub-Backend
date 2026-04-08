@@ -4,6 +4,7 @@ import com.ballhub.ballhub_backend.dto.response.ApiResponse;
 import com.ballhub.ballhub_backend.dto.response.PageResponse;
 import com.ballhub.ballhub_backend.dto.response.product.ProductDetailResponse;
 import com.ballhub.ballhub_backend.dto.response.product.ProductResponse;
+import com.ballhub.ballhub_backend.dto.response.product.ProductSimpleResponse;
 import com.ballhub.ballhub_backend.dto.response.product.VariantResponse;
 import com.ballhub.ballhub_backend.dto.request.product.*;
 import com.ballhub.ballhub_backend.service.ProductService;
@@ -92,6 +93,13 @@ public class ProductController {
         Page<ProductResponse> products = productService.searchProducts(filter, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(PageResponse.of(products)));
+    }
+
+    // Đảm bảo đặt cái này TRÊN hàm getProductById(@PathVariable Integer id)
+    @GetMapping("/products/all-active")
+    public ResponseEntity<ApiResponse<List<ProductSimpleResponse>>> getAllActiveForPromotion() {
+        List<ProductSimpleResponse> productList = productService.getAllActiveSimpleList();
+        return ResponseEntity.ok(ApiResponse.success(productList));
     }
 
     // PUBLIC - Get product detail
@@ -222,4 +230,6 @@ public class ProductController {
 
         return ResponseEntity.ok(ApiResponse.success(PageResponse.of(variants)));
     }
+
+
 }

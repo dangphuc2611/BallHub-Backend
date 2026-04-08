@@ -16,6 +16,9 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     Optional<Promotion> findByPromoCode(String promoCode);
 
+    // Thêm dòng này để tìm Flash Sale (không cần nhập mã code)
+    Optional<Promotion> findByDiscountPercentAndPromoCodeIsNull(Integer discountPercent);
+
     boolean existsByPromoCode(String promoCode);
 
     boolean existsByPromoCodeAndPromotionIdNot(String promoCode, Integer promotionId);
@@ -41,4 +44,10 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
             "AND (p.startDate IS NULL OR p.startDate <= CURRENT_TIMESTAMP) " +
             "AND (p.endDate IS NULL OR p.endDate >= CURRENT_TIMESTAMP)")
     Optional<Promotion> findActivePromotionForVariant(@Param("variantId") Integer variantId);
+
+    @Query("SELECT DISTINCT p.productName FROM VariantPromotion vp " +
+            "JOIN vp.variant v " +
+            "JOIN v.product p " +
+            "WHERE vp.promotion.promotionId = :promotionId")
+    List<String> findProductNamesByPromotionId(@Param("promotionId") Integer promotionId);
 }

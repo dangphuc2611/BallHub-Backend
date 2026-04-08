@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -27,4 +28,7 @@ public class PromotionResponse {
     private Boolean status;
     private boolean valid;               // Computed: còn hiệu lực hay không
     private String description;
+
+    private Integer appliedProductCount; // Số lượng sản phẩm đã áp dụng
+    private List<String> productNames;   // Danh sách tên sản phẩm (tùy chọn)
 }

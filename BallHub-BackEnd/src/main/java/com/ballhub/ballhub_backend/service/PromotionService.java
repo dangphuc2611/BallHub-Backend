@@ -2,12 +2,16 @@ package com.ballhub.ballhub_backend.service;
 
 import com.ballhub.ballhub_backend.dto.request.promotion.PromotionRequest;
 import com.ballhub.ballhub_backend.dto.response.promotion.PromotionResponse;
+import com.ballhub.ballhub_backend.entity.ProductVariant;
 import com.ballhub.ballhub_backend.entity.Promotion;
 import com.ballhub.ballhub_backend.entity.User;
+import com.ballhub.ballhub_backend.entity.VariantPromotion;
 import com.ballhub.ballhub_backend.exception.BadRequestException;
 import com.ballhub.ballhub_backend.exception.ResourceNotFoundException;
+import com.ballhub.ballhub_backend.repository.ProductVariantRepository;
 import com.ballhub.ballhub_backend.repository.PromotionRepository;
 import com.ballhub.ballhub_backend.repository.UserRepository;
+import com.ballhub.ballhub_backend.repository.VariantPromotionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,17 +34,25 @@ public class PromotionService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private ProductVariantRepository variantRepository;
+
+    @Autowired
+    private VariantPromotionRepository variantPromotionRepository;
+
     // ============================================
-    // ADMIN: TẠO VOUCHER & BẮN EMAIL MARKETING
+    // ADMIN: TẠO KHUYẾN MÃI / VOUCHER
     // ============================================
     public PromotionResponse createPromotion(PromotionRequest request) {
-        // 1. Kiểm tra trùng mã code trước khi làm bất cứ việc gì
-        if (request.getPromoCode() != null && promotionRepository.existsByPromoCode(request.getPromoCode())) {
+        // 1. Kiểm tra trùng mã code (nếu có nhập code)
+        if (request.getPromoCode() != null && !request.getPromoCode().isEmpty()
+                && promotionRepository.existsByPromoCode(request.getPromoCode())) {
             throw new BadRequestException("Mã giảm giá '" + request.getPromoCode() + "' đã tồn tại!");
         }
 
         // 2. Validate ngày tháng
-        if (request.getEndDate() != null && request.getStartDate() != null && request.getEndDate().isBefore(request.getStartDate())) {
+        if (request.getEndDate() != null && request.getStartDate() != null
+                && request.getEndDate().isBefore(request.getStartDate())) {
             throw new BadRequestException("Ngày kết thúc không được trước ngày bắt đầu!");
         }
 
@@ -60,38 +72,30 @@ public class PromotionService {
                 .status(true)
                 .build();
 
-        // 4. Lưu vào Database
+        // 4. Lưu Khuyến mãi vào Database trước
         Promotion savedPromotion = promotionRepository.save(promotion);
 
-        // 🚀 5. GỬI EMAIL MARKETING (Hệ thống tự chạy ngầm nhờ @Async trong EmailService)
-        // Chỉ gửi nếu là Voucher (có code) và đang ở trạng thái active
+        // 🚀 5. LOGIC MỚI: ÁP DỤNG CHO SẢN PHẨM ĐƯỢC CHỌN
+        if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
+            applyPromotionToProducts(savedPromotion, request.getProductIds());
+        }
+
+        // 6. GỬI EMAIL MARKETING (Hệ thống chạy ngầm)
         if (savedPromotion.getPromoCode() != null && Boolean.TRUE.equals(savedPromotion.getStatus())) {
-
-            // ✅ KẾT HỢP: Tìm cả khách hàng (USER) và quản trị viên (ADMIN) để cùng nhận mail
-            // Dùng List.of("USER", "ADMIN") để lấy cả 2 nhóm
-            List<User> recipients = userRepository.findByRolesIn(List.of("USER", "ADMIN"));
-
-            List<String> userEmails = recipients.stream()
-                    .map(User::getEmail)
-                    .filter(email -> email != null && !email.isEmpty())
-                    .collect(Collectors.toList());
-
-            if (!userEmails.isEmpty()) {
-                System.out.println("🚀 Đang gửi mail cho " + userEmails.size() + " người (bao gồm cả Admin)...");
-                emailService.sendNewVoucherEmail(userEmails, savedPromotion.getPromoCode(), savedPromotion.getDescription());
-            } else {
-                System.out.println("⚠️ Không tìm thấy email nào để gửi!");
-            }
+            sendMarketingEmail(savedPromotion);
         }
 
         return mapToResponse(savedPromotion);
     }
 
+    // ============================================
+    // ADMIN: CẬP NHẬT KHUYẾN MÃI
+    // ============================================
     public PromotionResponse updatePromotion(Integer promoId, PromotionRequest request) {
         Promotion promotion = promotionRepository.findById(promoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
 
-        // Nếu đổi mã code, kiểm tra xem mã mới có trùng với ai khác không
+        // Kiểm tra trùng mã code nếu có thay đổi
         if (request.getPromoCode() != null &&
                 !request.getPromoCode().equalsIgnoreCase(promotion.getPromoCode()) &&
                 promotionRepository.existsByPromoCode(request.getPromoCode())) {
@@ -109,18 +113,73 @@ public class PromotionService {
         promotion.setStartDate(request.getStartDate());
         promotion.setEndDate(request.getEndDate());
 
-        // DÒNG NÀY ĐỂ LƯU TRẠNG THÁI KÍCH HOẠT (BẬT/TẮT)
         if (request.getStatus() != null) {
             promotion.setStatus(request.getStatus());
+        }
+
+        // 🚀 7. CẬP NHẬT DANH SÁCH SẢN PHẨM ÁP DỤNG
+        if (request.getProductIds() != null) {
+            // 1. Xóa các liên kết cũ
+            variantPromotionRepository.deleteByPromotion(promotion);
+
+            // 2. QUAN TRỌNG: Ép Hibernate thực hiện lệnh xóa ngay xuống DB
+            variantPromotionRepository.flush();
+
+            // 3. Sau đó mới tạo liên kết mới
+            if (!request.getProductIds().isEmpty()) {
+                applyPromotionToProducts(promotion, request.getProductIds());
+            }
         }
 
         return mapToResponse(promotionRepository.save(promotion));
     }
 
+    // --- Hàm hỗ trợ lưu liên kết Sản phẩm (Biến thể) với Khuyến mãi ---
+    private void applyPromotionToProducts(Promotion promotion, List<Integer> productIds) {
+        // Lấy tất cả các biến thể của các sản phẩm nằm trong danh sách ID
+        List<ProductVariant> variants = variantRepository.findByProduct_ProductIdIn(productIds);
+
+        if (variants.isEmpty()) return;
+
+        List<VariantPromotion> vpList = variants.stream().map(variant -> {
+            VariantPromotion vp = new VariantPromotion();
+            vp.setPromotion(promotion);
+            vp.setVariant(variant);
+            return vp;
+        }).collect(Collectors.toList());
+
+        variantPromotionRepository.saveAll(vpList);
+    }
+
+    // --- Hàm hỗ trợ gửi Email ---
+    private void sendMarketingEmail(Promotion promotion) {
+        List<User> recipients = userRepository.findByRolesIn(List.of("USER", "ADMIN"));
+        List<String> userEmails = recipients.stream()
+                .map(User::getEmail)
+                .filter(email -> email != null && !email.isEmpty())
+                .collect(Collectors.toList());
+
+        if (!userEmails.isEmpty()) {
+            emailService.sendNewVoucherEmail(userEmails, promotion.getPromoCode(), promotion.getDescription());
+        }
+    }
+
+    public List<Integer> getAppliedProductIds(Integer promotionId) {
+        // Truy vấn bảng VariantPromotion để lấy ProductId của các biến thể thuộc khuyến mãi này
+        return variantPromotionRepository.findByPromotion_PromotionId(promotionId)
+                .stream()
+                .map(vp -> vp.getVariant().getProduct().getProductId())
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    // ============================================
+    // CÁC HÀM QUẢN LÝ TRẠNG THÁI & TRUY VẤN
+    // ============================================
     public void deletePromotion(Integer promoId) {
         Promotion promotion = promotionRepository.findById(promoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
-        promotion.setStatus(false);
+        promotion.setStatus(false); // Vô hiệu hóa thay vì xóa cứng
         promotionRepository.save(promotion);
     }
 
@@ -150,7 +209,6 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public List<PromotionResponse> getAllActivePromotions() {
-        // Dùng hàm findValidVouchers từ Repository để lấy danh sách voucher còn hạn
         return promotionRepository.findValidVouchers().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -160,6 +218,9 @@ public class PromotionService {
     // MAPPING: ENTITY -> RESPONSE DTO
     // ============================================
     private PromotionResponse mapToResponse(Promotion p) {
+        // Lấy danh sách tên sản phẩm để trả về (Dùng query có sẵn trong Repository của bạn)
+        List<String> productNames = promotionRepository.findProductNamesByPromotionId(p.getPromotionId());
+
         return PromotionResponse.builder()
                 .promotionId(p.getPromotionId())
                 .promotionName(p.getPromotionName())
@@ -175,6 +236,7 @@ public class PromotionService {
                 .endDate(p.getEndDate())
                 .status(p.getStatus())
                 .valid(p.isValid())
+                .appliedProductCount(productNames.size()) // Trả về số lượng sản phẩm áp dụng
                 .build();
     }
 }

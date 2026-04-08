@@ -47,23 +47,28 @@ public class SecurityConfig {
                         // 1. TÀI NGUYÊN TĨNH & PUBLIC
                         .requestMatchers("/img/**", "/uploads/**").permitAll()
 
-                        // 2. AUTHENTICATION (Đăng nhập, Đăng ký, Quên mật khẩu, Google)
+                        // 2. AUTHENTICATION
                         .requestMatchers("/api/auth/**", "/api/payment/**").permitAll()
 
-                        // 3. XEM SẢN PHẨM & THUỘC TÍNH (Ai cũng xem được)
+                        // 3. XEM (GET) SẢN PHẨM & KHUYẾN MÃI (Ai cũng xem được)
                         .requestMatchers(HttpMethod.GET,
                                 "/api/products/**",
                                 "/api/categories/**",
                                 "/api/brands/**",
-                                "/api/promotions/**",
-                                "/api/sizes/**",       // ✅ Fix 403 bảng Size
-                                "/api/colors/**",      // ✅ Fix 403 bảng Color
-                                "/api/materials/**",   // ✅ Fix 403 bảng Material
-                                "/api/styles/**"       // ✅ Fix 403 bảng Style
+                                "/api/promotions/**", // Cho phép khách xem danh sách khuyến mãi
+                                "/api/sizes/**",
+                                "/api/colors/**",
+                                "/api/materials/**",
+                                "/api/styles/**"
                         ).permitAll()
 
-                        // 4. CHỨC NĂNG CỦA ADMIN (Gộp chung các route quản trị)
-                        .requestMatchers("/api/admin/**", "/api/stats/**", "/api/users/admin/**").hasRole("ADMIN")
+                        // 4. CHỨC NĂNG CỦA ADMIN (CẬP NHẬT TẠI ĐÂY)
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/api/stats/**",
+                                "/api/users/admin/**",
+                                "/api/promotions/admin/**" // ✅ Bổ sung dòng này để bảo vệ các route tạo/sửa/xóa khuyến mãi
+                        ).hasRole("ADMIN")
 
                         // 5. CÁC API CÒN LẠI BẮT BUỘC PHẢI ĐĂNG NHẬP
                         .anyRequest().authenticated())

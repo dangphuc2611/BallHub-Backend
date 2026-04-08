@@ -42,6 +42,8 @@ public class ProductDetailResponse {
 
     private ProductContentBlock contentBlock;
 
+    private Integer discountPercent;
+
     private Boolean status;
     private LocalDateTime createdAt;
 }
