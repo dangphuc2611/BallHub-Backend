@@ -28,6 +28,11 @@ public class OrderResponse {
     private BigDecimal shippingFee;
     private String deliveryAddress;
     private BigDecimal totalAmount;
+
+    // ✅ THÊM VÀO LUÔN CHO ĐỒNG BỘ
+    private BigDecimal customerCash;
+    private BigDecimal changeAmount;
+
     private Integer totalItems;
     private String paymentMethodName;
 }

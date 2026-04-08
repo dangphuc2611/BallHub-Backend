@@ -16,7 +16,6 @@ public class CreateOrderRequest {
 
     private String deliveryAddress;
 
-    // ✅ XÓA @NotNull: Vì đơn hàng tại quầy (POS) sẽ KHÔNG CÓ địa chỉ
     private Integer addressId;
 
     @NotNull(message = "Payment method ID không được để trống")
@@ -28,9 +27,12 @@ public class CreateOrderRequest {
 
     private BigDecimal shippingFee;
 
-    // ✅ BỔ SUNG: Cờ đánh dấu đây là đơn hàng bán tại quầy
     private Boolean isPos;
 
     private String fullName;
     private String phone;
+
+    // ✅ BỔ SUNG ĐỂ HỨNG TIỀN TỪ FRONTEND
+    private BigDecimal customerCash;
+    private BigDecimal changeAmount;
 }

@@ -58,7 +58,15 @@ public class Order {
     @Column(name = "TotalAmount", precision = 18, scale = 2)
     private BigDecimal totalAmount;
 
-    // ✅ PHẢI ĐẶT TÊN LÀ items ĐỂ KHỚP VỚI OrderService VÀ OrderItemResponse
+    // ✅ THÊM 2 TRƯỜNG MỚI VÀO DATABASE
+    @Column(name = "customer_cash", precision = 18, scale = 2)
+    @Builder.Default
+    private BigDecimal customerCash = BigDecimal.ZERO;
+
+    @Column(name = "change_amount", precision = 18, scale = 2)
+    @Builder.Default
+    private BigDecimal changeAmount = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
@@ -72,6 +80,8 @@ public class Order {
         orderDate = LocalDateTime.now();
         if (discountAmount == null) discountAmount = BigDecimal.ZERO;
         if (shippingFee == null) shippingFee = BigDecimal.ZERO;
+        if (customerCash == null) customerCash = BigDecimal.ZERO; // Khởi tạo mặc định
+        if (changeAmount == null) changeAmount = BigDecimal.ZERO; // Khởi tạo mặc định
     }
 
     public void updateStatus(OrderStatus newStatus, String note) {
@@ -86,13 +96,11 @@ public class Order {
     }
 
     public void calculateTotalAmount() {
-        // ✅ Kiểm tra items để tránh lỗi NullPointerException
         if (this.items == null || this.items.isEmpty()) {
             this.subTotal = BigDecimal.ZERO;
         } else {
             this.subTotal = this.items.stream()
                     .map(item -> {
-                        // Tránh lỗi nếu finalPrice bị null
                         BigDecimal price = item.getFinalPrice() != null ? item.getFinalPrice() : BigDecimal.ZERO;
                         return price.multiply(BigDecimal.valueOf(item.getQuantity()));
                     })

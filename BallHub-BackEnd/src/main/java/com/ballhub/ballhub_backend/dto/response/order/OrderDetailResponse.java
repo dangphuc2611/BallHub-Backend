@@ -28,6 +28,11 @@ public class OrderDetailResponse {
     private String promoCode;
     private BigDecimal shippingFee;
     private BigDecimal totalAmount;
+
+    // ✅ TRẢ VỀ CHO FRONTEND IN HÓA ĐƠN
+    private BigDecimal customerCash;
+    private BigDecimal changeAmount;
+
     private List<OrderItemResponse> items;
     private List<OrderStatusHistoryResponse> statusHistory;
 }
