@@ -75,12 +75,11 @@ public interface ProductRepository
     // PRODUCT DETAIL
     // =====================================================
 
-    @Query("""
-        SELECT DISTINCT p FROM Product p
-        LEFT JOIN FETCH p.variants v
-        WHERE p.productId = :id
-          AND p.status = true
-    """)
+    @Query("SELECT DISTINCT p FROM Product p " +
+            "LEFT JOIN FETCH p.variants v " +
+            "LEFT JOIN FETCH v.size " +
+            "LEFT JOIN FETCH v.color " +
+            "WHERE p.productId = :id")
     Optional<Product> findProductWithVariants(@Param("id") Integer id);
 
     @Query("""

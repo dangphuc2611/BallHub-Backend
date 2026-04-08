@@ -56,7 +56,7 @@ public class ProductService {
 
         @Transactional(readOnly = true)
         public Page<ProductResponse> getAllProducts(Pageable pageable) {
-                return productRepository.findByStatusTrue(pageable)
+                return productRepository.findAll(pageable) // ✅ Lấy tất cả (cả bật và tắt)
                         .map(this::mapToListResponse);
         }
 
@@ -149,8 +149,10 @@ public class ProductService {
         }
 
         public ProductDetailResponse updateProduct(Integer id, UpdateProductRequest request) {
-                Product product = productRepository.findById(id)
+                // 1. Sử dụng findProductWithVariants để lấy SP kèm Variants ngay từ đầu
+                Product product = productRepository.findProductWithVariants(id)
                         .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+
                 Category category = categoryRepository.findById(request.getCategoryId())
                         .orElseThrow(() -> new ResourceNotFoundException("Danh mục không tồn tại"));
                 Brand brand = brandRepository.findById(request.getBrandId())
@@ -176,12 +178,19 @@ public class ProductService {
                         product.setStatus(request.getStatus());
                 }
 
-                Product updated = productRepository.save(product);
+                // 2. Lưu thông tin cơ bản
+                productRepository.save(product);
 
-                // ✅ XỬ LÝ KHUYẾN MÃI KHI UPDATE
-                handleProductDiscount(updated, request.getDiscountPercent());
+                // 3. Xử lý khuyến mãi (Đảm bảo trong hàm này bạn đã thêm .flush() như tôi hướng dẫn)
+                handleProductDiscount(product, request.getDiscountPercent());
 
-                return mapToDetailResponse(updated);
+                // 🚀 BƯỚC QUAN TRỌNG NHẤT: TRUY VẤN LẠI DỮ LIỆU ĐÃ NẠP ĐỦ SIZE/COLOR
+                // Việc này giúp tránh lỗi "LazyInitializationException: could not initialize proxy Size#3"
+                Product freshProduct = productRepository.findProductWithVariants(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("Lỗi đồng bộ dữ liệu sau khi cập nhật"));
+
+                // 4. Trả về kết quả từ đối tượng đã nạp đầy đủ (Eager Loading)
+                return mapToDetailResponse(freshProduct);
         }
 
         // ✅ HÀM DÙNG CHUNG ĐỂ XỬ LÝ KHUYẾN MÃI (INSERT VÀO DB ĐÚNG CHUẨN)
@@ -425,6 +434,10 @@ public class ProductService {
         }
 
         private ProductDetailResponse mapToDetailResponse(Product product) {
+
+                if (product.getVariants() != null) {
+                        product.getVariants().size();
+                }
 
                 Integer activePercent = variantPromotionRepository.findActiveFlashSaleDiscountByProductId(product.getProductId());
                 int discountPct = activePercent != null ? activePercent : 0;
