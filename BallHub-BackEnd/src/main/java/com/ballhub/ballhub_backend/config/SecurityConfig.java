@@ -43,58 +43,29 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // .authorizeHttpRequests(auth -> auth
-
-                // .requestMatchers(
-                // "/img/**")
-                // .permitAll()
-
-                // // Auth endpoints
-                // .requestMatchers("/api/auth/**").permitAll()
-                // .requestMatchers("/api/auth/google-login").permitAll()
-                // .requestMatchers("/uploads/**").permitAll()
-
-                // // Public endpoints
-                // .requestMatchers("/api/products/**").permitAll()
-                // .requestMatchers("/api/categories/**").permitAll()
-                // .requestMatchers("/api/brands/**").permitAll()
-                // .requestMatchers("/api/test/**").permitAll()
-                // .requestMatchers("/api/promotions/**").permitAll()
-
-                // .requestMatchers("/api/users/me").authenticated()
-                // .requestMatchers("/api/users/update").authenticated()
-
-                // // Admin endpoints
-                // .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                // .requestMatchers("/api/stats/**").permitAll()
-
-                // // All other endpoints require authentication
-                // .anyRequest().authenticated())
-
-                // security disabled: permit all
                 .authorizeHttpRequests(auth -> auth
                         // 1. TÀI NGUYÊN TĨNH & PUBLIC
                         .requestMatchers("/img/**", "/uploads/**").permitAll()
 
                         // 2. AUTHENTICATION (Đăng nhập, Đăng ký, Quên mật khẩu, Google)
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/payment/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/payment/**").permitAll()
 
-                        .requestMatchers("/api/payment/**").permitAll()
-
-                        // 3. XEM SẢN PHẨM (Ai cũng xem được)
+                        // 3. XEM SẢN PHẨM & THUỘC TÍNH (Ai cũng xem được)
                         .requestMatchers(HttpMethod.GET,
                                 "/api/products/**",
                                 "/api/categories/**",
                                 "/api/brands/**",
-                                "/api/promotions/**")
-                        .permitAll()
+                                "/api/promotions/**",
+                                "/api/sizes/**",       // ✅ Fix 403 bảng Size
+                                "/api/colors/**",      // ✅ Fix 403 bảng Color
+                                "/api/materials/**",   // ✅ Fix 403 bảng Material
+                                "/api/styles/**"       // ✅ Fix 403 bảng Style
+                        ).permitAll()
 
-                        // 4. CHỨC NĂNG CỦA ADMIN
-                        .requestMatchers("/api/admin/**", "/api/stats/**").hasRole("ADMIN")
+                        // 4. CHỨC NĂNG CỦA ADMIN (Gộp chung các route quản trị)
+                        .requestMatchers("/api/admin/**", "/api/stats/**", "/api/users/admin/**").hasRole("ADMIN")
 
-                        // 5. CÁC API CÒN LẠI BẮT BUỘC PHẢI ĐĂNG NHẬP (Giỏ hàng, Đặt hàng, Profile...)
+                        // 5. CÁC API CÒN LẠI BẮT BUỘC PHẢI ĐĂNG NHẬP
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -133,40 +104,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
-// ## 🎯 4. LUỒNG NGHIỆP VỤ ĐẶT HÀNG & THANH TOÁN
-//
-// ### 4.1 Sequence Diagram - Create Order Flow
-// ```
-// User → Controller: POST /api/orders + CreateOrderRequest
-// Controller → AuthFilter: Verify JWT
-// AuthFilter → Controller: userId = 123
-//
-// Controller → OrderService: createOrder(userId, request)
-// OrderService → CartRepository: findByUserId(123)
-// CartRepository → OrderService: Cart + CartItems
-//
-// OrderService → Validation:
-// - Cart không rỗng?
-// - AddressID hợp lệ?
-// - PaymentMethodID hợp lệ?
-//
-// OrderService → Loop [For each CartItem]:
-// - Check variant.stockQuantity >= item.quantity
-// - Nếu không đủ → throw InsufficientStockException
-//
-// OrderService → Transaction BEGIN:
-// 1. Tạo Order mới
-// 2. Loop [For each CartItem]:
-// - Snapshot giá hiện tại (originalPrice, discountPrice)
-// - Tính finalPrice
-// - Tạo OrderItem
-// - Trừ stock: variant.stockQuantity -= quantity
-// 3. Tính totalAmount
-// 4. Lưu Order
-// 5. Tạo OrderStatusHistory (status = PENDING)
-// 6. Xóa CartItems
-// 7. Commit
-//
-// OrderService → Controller: OrderResponse
-// Controller → User: 201 Created + OrderResponse
