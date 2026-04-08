@@ -96,8 +96,20 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderDetailResponse>> getOrderDetail(
             @PathVariable Integer id,
             Authentication authentication) {
-        Integer userId = getUserId(authentication);
-        OrderDetailResponse order = orderService.getOrderDetail(userId, id);
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+        // Kiểm tra xem người đang request có phải là ADMIN không
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        OrderDetailResponse order;
+        if (isAdmin) {
+            // Quyền tối cao: Xem đơn nào cũng được không bị 404
+            order = orderService.getOrderDetailAdmin(id);
+        } else {
+            // User thường: Chỉ xem được đơn của chính mình
+            order = orderService.getOrderDetail(userDetails.getUserId(), id);
+        }
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 
