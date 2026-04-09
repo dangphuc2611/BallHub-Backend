@@ -58,7 +58,6 @@ public class Order {
     @Column(name = "TotalAmount", precision = 18, scale = 2)
     private BigDecimal totalAmount;
 
-    // ✅ THÊM 2 TRƯỜNG MỚI VÀO DATABASE
     @Column(name = "customer_cash", precision = 18, scale = 2)
     @Builder.Default
     private BigDecimal customerCash = BigDecimal.ZERO;
@@ -66,6 +65,16 @@ public class Order {
     @Column(name = "change_amount", precision = 18, scale = 2)
     @Builder.Default
     private BigDecimal changeAmount = BigDecimal.ZERO;
+
+    @Column(name = "isPos")
+    private Boolean isPos = false; // Mặc định là false (đơn Web)
+
+    @Column(name = "deliveryAddress", length = 500)
+    private String deliveryAddress;
+
+    // Nếu bạn có cột phone như tôi gợi ý lúc nãy:
+    @Column(name = "phone")
+    private String phone;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default

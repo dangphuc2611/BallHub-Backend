@@ -33,6 +33,8 @@ public class OrderDetailResponse {
     private BigDecimal customerCash;
     private BigDecimal changeAmount;
 
+    private Boolean isPos;
+
     private List<OrderItemResponse> items;
     private List<OrderStatusHistoryResponse> statusHistory;
 }

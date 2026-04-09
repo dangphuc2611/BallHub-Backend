@@ -147,6 +147,10 @@ public class OrderService {
                 .shippingFee(shipFee)
                 .customerCash(cash)
                 .changeAmount(change)
+                .isPos(request.getIsPos() != null ? request.getIsPos() : false)
+                .deliveryAddress(request.getDeliveryAddress())
+                .phone(request.getPhone())
+
                 .build();
 
         Order savedOrder = orderRepository.save(order);
@@ -249,6 +253,7 @@ public class OrderService {
     }
 
     private OrderResponse mapToResponse(Order order) {
+        // 1. Tính tổng số lượng món (Giữ nguyên)
         int totalItems = 0;
         if (order.getItems() != null) {
             for (OrderItem item : order.getItems()) {
@@ -256,13 +261,26 @@ public class OrderService {
             }
         }
 
-        boolean isPos = (order.getAddress() == null);
-        String deliveryAddress = isPos ? null : order.getAddress().getFullAddress();
-        BigDecimal calculatedTotal = order.getSubTotal().subtract(order.getDiscountAmount()).add(order.getShippingFee());
+        // 2. Lấy trực tiếp từ cột mới trong Database
+        boolean isPos = Boolean.TRUE.equals(order.getIsPos());
 
+        // 🚀 Ưu tiên lấy địa chỉ ở cột mới, nếu không có mới lấy từ bảng UserAddress (fallback)
+        String deliveryAddress = order.getDeliveryAddress();
+        if (deliveryAddress == null && order.getAddress() != null) {
+            deliveryAddress = order.getAddress().getFullAddress();
+        }
+
+        // 🚀 Lấy số điện thoại trực tiếp từ cột mới
+        String phone = order.getPhone();
+        if (phone == null && order.getUser() != null) {
+            phone = order.getUser().getPhone();
+        }
+
+        // 3. Logic hiển thị tên khách hàng
         boolean isAdmin = order.getUser() != null && "ADMIN".equalsIgnoreCase(order.getUser().getRole());
         String displayFullName = (order.getUser() != null && !isAdmin) ? order.getUser().getFullName() : "Khách lẻ";
 
+        // ✅ Vẫn giữ logic Note POS để hỗ trợ hiển thị dữ liệu cho các đơn cũ bạn đã tạo trước đó
         if (isPos && order.getStatusHistory() != null) {
             for (OrderStatusHistory h : order.getStatusHistory()) {
                 if (h.getNote() != null && h.getNote().contains("POS")) {
@@ -275,87 +293,97 @@ public class OrderService {
             }
         }
 
+        // 4. Trả về DTO đã được lấp đầy dữ liệu mới
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .userId((order.getUser() != null) ? order.getUser().getUserId() : null)
                 .userFullName(displayFullName)
-                .fullName(displayFullName)
+                .fullName(displayFullName) // Để đồng bộ với các màn hình khác
+                .phone(phone)              // 🚀 Gửi phone xuống để hiện ở cột Khách hàng
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
                 .discountAmount(order.getDiscountAmount())
                 .shippingFee(order.getShippingFee())
                 .deliveryAddress(deliveryAddress)
-                .totalAmount(calculatedTotal)
+                .totalAmount(order.getTotalAmount())
                 .customerCash(order.getCustomerCash())
                 .changeAmount(order.getChangeAmount())
                 .totalItems(totalItems)
+                .isPos(isPos)                     // 🚀 Gửi cờ isPos để Frontend lên màu Badge
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .build();
     }
 
     private OrderDetailResponse mapToDetailResponse(Order order) {
+        // 1. Map danh sách sản phẩm và lịch sử trạng thái (Giữ nguyên)
         List<OrderItemResponse> itemResponses = new ArrayList<>();
         if (order.getItems() != null) {
-            List<OrderItem> itemsList = new ArrayList<>(order.getItems());
-            for (OrderItem item : itemsList) {
+            for (OrderItem item : new ArrayList<>(order.getItems())) {
                 itemResponses.add(mapToItemResponse(item));
             }
         }
 
         List<OrderStatusHistoryResponse> historyResponses = new ArrayList<>();
         if (order.getStatusHistory() != null) {
-            List<OrderStatusHistory> historyList = new ArrayList<>(order.getStatusHistory());
-            for (OrderStatusHistory history : historyList) {
+            for (OrderStatusHistory history : new ArrayList<>(order.getStatusHistory())) {
                 historyResponses.add(mapToHistoryResponse(history));
             }
         }
 
+        // 2. Xác định các thông tin cơ bản từ cột mới
         String promoCodeUsed = (order.getPromotion() != null) ? order.getPromotion().getPromoCode() : null;
-        boolean isPos = (order.getAddress() == null);
+
+        // 🚀 Lấy trực tiếp từ cột isPos mới
+        boolean isPos = Boolean.TRUE.equals(order.getIsPos());
         boolean isAdmin = order.getUser() != null && "ADMIN".equalsIgnoreCase(order.getUser().getRole());
 
+        // 3. Xử lý Tên - Số điện thoại - Địa chỉ (Ưu tiên cột mới)
         String displayFullName = (order.getUser() != null && !isAdmin) ? order.getUser().getFullName() : "Khách lẻ";
-        String displayPhone = "---";
-        String displayEmail = (order.getUser() != null && !isAdmin) ? order.getUser().getEmail() : "";
-        String displayAddress = isPos ? "Nhận tại cửa hàng (POS)" : order.getAddress().getFullAddress();
 
-        if (isPos) {
-            if (order.getStatusHistory() != null) {
-                for (OrderStatusHistory h : order.getStatusHistory()) {
-                    if (h.getNote() != null && h.getNote().contains("POS")) {
-                        String[] parts = h.getNote().split("\\|");
-                        if (parts.length >= 2 && !parts[1].trim().isEmpty() && !parts[1].contains("POS")) {
-                            displayFullName = parts[1];
-                        }
-                        if (parts.length >= 3 && !parts[2].trim().isEmpty() && !parts[2].equals("Trống")) {
-                            displayPhone = parts[2];
-                        }
-                        // ✅ MÓC ĐỊA CHỈ TRÚC KHÊ TỪ ĐÂY RA
-                        if (parts.length >= 4 && !parts[3].trim().isEmpty() && !parts[3].equals("Nhận tại cửa hàng (POS)")) {
-                            displayAddress = parts[3];
-                        }
-                        break;
-                    }
+        // 🚀 Lấy Phone trực tiếp
+        String displayPhone = order.getPhone();
+        if (displayPhone == null && order.getUser() != null) {
+            displayPhone = order.getUser().getPhone();
+        }
+
+        // 🚀 Lấy Địa chỉ trực tiếp
+        String displayAddress = order.getDeliveryAddress();
+        if (displayAddress == null && order.getAddress() != null) {
+            displayAddress = order.getAddress().getFullAddress();
+        }
+
+        String displayEmail = (order.getUser() != null && !isAdmin) ? order.getUser().getEmail() : "";
+
+        // ✅ Logic dự phòng: Nếu là đơn cũ (các trường mới đang null), vẫn dùng split để lấy data cũ
+        if (isPos && (displayPhone == null || displayAddress == null)) {
+            for (OrderStatusHistory h : order.getStatusHistory()) {
+                if (h.getNote() != null && h.getNote().contains("POS")) {
+                    String[] parts = h.getNote().split("\\|");
+                    if (parts.length >= 2 && displayFullName.equals("Khách lẻ")) displayFullName = parts[1];
+                    if (parts.length >= 3 && (displayPhone == null || displayPhone.equals("---"))) displayPhone = parts[2];
+                    if (parts.length >= 4 && (displayAddress == null)) displayAddress = parts[3];
+                    break;
                 }
-            }
-        } else {
-            if (order.getAddress() != null && order.getAddress().getUser() != null) {
-                displayPhone = order.getAddress().getUser().getPhone();
             }
         }
 
-        if (displayPhone == null || displayPhone.equals("---") || displayPhone.trim().isEmpty()) {
+        // 4. Chuẩn hóa hiển thị cuối cùng
+        if (displayAddress == null || displayAddress.trim().isEmpty()) {
+            displayAddress = isPos ? "Nhận tại cửa hàng (POS)" : "---";
+        }
+        if (displayPhone == null || displayPhone.trim().isEmpty() || displayPhone.equals("Trống")) {
             displayPhone = isPos ? "Mua tại quầy" : "---";
         }
 
+        // 5. Trả về Response đầy đủ
         return OrderDetailResponse.builder()
                 .orderId(order.getOrderId())
                 .userId((order.getUser() != null) ? order.getUser().getUserId() : null)
                 .userFullName(displayFullName)
                 .userEmail(displayEmail)
                 .userPhone(displayPhone)
-                .deliveryAddress(displayAddress) // Hiện "58 Trúc Khê" vào đây
+                .deliveryAddress(displayAddress) // "58 Trúc Khê" sẽ hiện ở đây cực chuẩn
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
@@ -366,6 +394,10 @@ public class OrderService {
                 .totalAmount(order.getTotalAmount())
                 .customerCash(order.getCustomerCash())
                 .changeAmount(order.getChangeAmount())
+
+                // 🚀 Đừng quên gửi biến này xuống để Frontend biết đường hiển thị
+                .isPos(isPos)
+
                 .items(itemResponses)
                 .statusHistory(historyResponses)
                 .build();

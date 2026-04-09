@@ -527,6 +527,20 @@ public class ProductService {
         }
 
         private VariantResponse mapToVariantResponse(ProductVariant variant) {
+                // 1. TÌM % SALE TỪ BẢNG TRUNG GIAN ĐANG ACTIVE
+                Integer activePercent = variantPromotionRepository.findActiveFlashSaleDiscountByProductId(variant.getProduct().getProductId());
+                int discountPct = activePercent != null ? activePercent : 0;
+
+                BigDecimal basePrice = variant.getPrice();
+                BigDecimal dynamicFinalPrice = variant.getFinalPrice() != null ? variant.getFinalPrice() : basePrice;
+
+                // 2. TÍNH TOÁN LẠI GIÁ BÁN NẾU CÓ FLASH SALE
+                if (discountPct > 0) {
+                        BigDecimal multiplier = BigDecimal.valueOf(100 - discountPct).divide(
+                                BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        dynamicFinalPrice = basePrice.multiply(multiplier);
+                }
+
                 return VariantResponse.builder()
                         .variantId(variant.getVariantId())
                         .productId(variant.getProduct().getProductId())
@@ -534,7 +548,7 @@ public class ProductService {
                         .productImage(variant.getProduct().getImages().stream()
                                 .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
                                 .findFirst()
-                                .map(img -> img.getImageUrl())
+                                .map(ProductImage::getImageUrl)
                                 .orElse(variant.getProduct().getImages().isEmpty() ? null
                                         : variant.getProduct().getImages().get(0)
                                         .getImageUrl()))
@@ -542,9 +556,9 @@ public class ProductService {
                         .sizeName(variant.getSize().getSizeName())
                         .colorId(variant.getColor().getColorId())
                         .colorName(variant.getColor().getColorName())
-                        .price(variant.getPrice())
-                        .discountPrice(variant.getDiscountPrice())
-                        .finalPrice(variant.getFinalPrice())
+                        .price(basePrice)                 // Giá gốc
+                        .discountPrice(dynamicFinalPrice) // Giá hiển thị (đã giảm)
+                        .finalPrice(dynamicFinalPrice)    // Giá chốt thanh toán
                         .stockQuantity(variant.getStockQuantity())
                         .sku(variant.getSku())
                         .status(variant.getStatus())

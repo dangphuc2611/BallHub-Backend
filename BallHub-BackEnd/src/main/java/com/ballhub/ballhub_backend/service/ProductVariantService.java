@@ -6,6 +6,7 @@ import com.ballhub.ballhub_backend.dto.response.admin.PosVariantResponse;
 import com.ballhub.ballhub_backend.entity.ProductVariant;
 import com.ballhub.ballhub_backend.repository.ProductImageRepository;
 import com.ballhub.ballhub_backend.repository.ProductVariantRepository;
+import com.ballhub.ballhub_backend.repository.VariantPromotionRepository;
 import com.ballhub.ballhub_backend.repository.spec.ProductVariantSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +26,9 @@ public class ProductVariantService {
 
     private final ProductVariantRepository productVariantRepository;
     private final ProductImageRepository productImageRepository;
+
+    // ✅ THÊM DÒNG NÀY ĐỂ GỌI ĐƯỢC % KHUYẾN MÃI
+    private final VariantPromotionRepository variantPromotionRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<PosVariantResponse> getVariantsForPos(PosVariantFilterRequest request, Pageable pageable) {
@@ -42,6 +48,20 @@ public class ProductVariantService {
                     .map(img -> img.getImageUrl())
                     .orElse(null);
 
+            // 🚀 BẮT ĐẦU: LOGIC TÍNH TOÁN LẠI GIÁ BÁN CHO MÀN HÌNH POS
+            Integer activePercent = variantPromotionRepository.findActiveFlashSaleDiscountByProductId(variant.getProduct().getProductId());
+            int discountPct = activePercent != null ? activePercent : 0;
+
+            BigDecimal basePrice = variant.getPrice();
+            BigDecimal dynamicFinalPrice = variant.getFinalPrice() != null ? variant.getFinalPrice() : basePrice;
+
+            if (discountPct > 0) {
+                BigDecimal multiplier = BigDecimal.valueOf(100 - discountPct).divide(
+                        BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                dynamicFinalPrice = basePrice.multiply(multiplier);
+            }
+            // 🚀 KẾT THÚC LOGIC TÍNH GIÁ
+
             return PosVariantResponse.builder()
                     .variantId(variant.getVariantId())
                     .productId(variant.getProduct().getProductId())
@@ -51,8 +71,8 @@ public class ProductVariantService {
                     .colorName(variant.getColor().getColorName())
                     .brandName(variant.getProduct().getBrand() != null ? variant.getProduct().getBrand().getBrandName() : "")
                     .categoryName(variant.getProduct().getCategory() != null ? variant.getProduct().getCategory().getCategoryName() : "")
-                    .price(variant.getPrice())
-                    .discountPrice(variant.getDiscountPrice())
+                    .price(basePrice)                 // ✅ Giá gốc (hiển thị gạch ngang)
+                    .discountPrice(dynamicFinalPrice) // ✅ Giá đã giảm 10% (hiển thị màu cam)
                     .stockQuantity(variant.getStockQuantity())
                     .imageUrl(imgUrl)
                     .build();
