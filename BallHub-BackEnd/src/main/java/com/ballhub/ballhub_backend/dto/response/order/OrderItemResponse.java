@@ -22,9 +22,9 @@ public class OrderItemResponse {
     private BigDecimal originalPrice;
     private Integer discountPercent;
 
-    // --- BỔ SUNG ---
     private String appliedPromotionName; // Hiển thị CTKM áp dụng (VD: "Flash sale tháng 2")
-    // ---------------
+
+    private String sku;
 
     private BigDecimal finalPrice;
     private BigDecimal subtotal;

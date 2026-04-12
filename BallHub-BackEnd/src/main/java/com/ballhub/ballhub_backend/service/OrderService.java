@@ -104,32 +104,25 @@ public class OrderService {
                     .orElseThrow(() -> new BadRequestException("Khách hàng không tồn tại"));
         }
 
-        // ==========================================
-        // 🟢 FIX LOGIC: Nhận diện Tiền mặt vs VNPAY
-        // ==========================================
         boolean isDelivery = request.getAddressId() != null ||
                 (request.getDeliveryAddress() != null && !request.getDeliveryAddress().trim().isEmpty());
 
-        // Giả sử ID = 1 là Tiền mặt. Mọi ID khác (2, 3...) đều coi như VNPAY/Chuyển khoản
         boolean isCash = request.getPaymentMethodId() == null || request.getPaymentMethodId() == 1;
 
         OrderStatus finalStatus;
 
         if (!isCash) {
-            // Đã quét mã/Online payment thì BẮT BUỘC phải PENDING để chờ tiền về
             finalStatus = statusRepository.findByStatusName("PENDING")
                     .orElseThrow(() -> new RuntimeException("Lỗi trạng thái PENDING"));
         } else if (Boolean.TRUE.equals(request.getIsPos())) {
-            // Trả Tiền mặt tại quầy
             if (isDelivery) {
                 finalStatus = statusRepository.findByStatusName("CONFIRMED")
                         .orElseThrow(() -> new RuntimeException("Lỗi trạng thái CONFIRMED"));
             } else {
-                finalStatus = statusRepository.findByStatusName("DELIVERED")
-                        .orElseThrow(() -> new RuntimeException("Lỗi trạng thái DELIVERED"));
+                finalStatus = statusRepository.findByStatusName("COMPLETED")
+                        .orElseThrow(() -> new RuntimeException("Lỗi trạng thái COMPLETED"));
             }
         } else {
-            // Tiền mặt Online (COD)
             finalStatus = statusRepository.findByStatusName("PENDING")
                     .orElseThrow(() -> new RuntimeException("Lỗi trạng thái PENDING"));
         }
@@ -150,7 +143,6 @@ public class OrderService {
                 .isPos(request.getIsPos() != null ? request.getIsPos() : false)
                 .deliveryAddress(request.getDeliveryAddress())
                 .phone(request.getPhone())
-
                 .build();
 
         Order savedOrder = orderRepository.save(order);
@@ -252,8 +244,52 @@ public class OrderService {
         orderRepository.save(order);
     }
 
+    // ==========================================
+    // 🚀 NEW: HÀM KHÁCH XÁC NHẬN ĐÃ NHẬN HÀNG
+    // ==========================================
+    public OrderDetailResponse confirmReceived(Integer userId, Integer orderId) {
+        Order order = orderRepository.findByOrderIdAndUserUserId(orderId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
+
+        if (!"DELIVERED".equals(order.getStatus().getStatusName())) {
+            throw new BadRequestException("Chỉ có thể xác nhận khi đơn hàng ở trạng thái Đã giao");
+        }
+
+        OrderStatus completedStatus = statusRepository.findByStatusName("COMPLETED")
+                .orElseThrow(() -> new RuntimeException("OrderStatus COMPLETED không tồn tại"));
+
+        order.updateStatus(completedStatus, "Khách hàng xác nhận đã nhận hàng thành công");
+        Order updated = orderRepository.save(order);
+        return mapToDetailResponse(updated);
+    }
+
+    // ==========================================
+    // 🚀 NEW: HÀM KHÁCH KHIẾU NẠI CHƯA NHẬN HÀNG
+    // ==========================================
+    public OrderDetailResponse reportNotReceived(Integer userId, Integer orderId) {
+        Order order = orderRepository.findByOrderIdAndUserUserId(orderId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
+
+        if (!"DELIVERED".equals(order.getStatus().getStatusName())) {
+            throw new BadRequestException("Chỉ có thể khiếu nại khi đơn hàng ở trạng thái Đã giao");
+        }
+
+        OrderStatus failedStatus = statusRepository.findByStatusName("FAILED")
+                .orElseThrow(() -> new RuntimeException("OrderStatus FAILED không tồn tại"));
+
+        order.updateStatus(failedStatus, "KHIẾU NẠI: Khách báo chưa nhận được hàng (Shipper báo sai)");
+
+        // Cộng lại số lượng vì giao không thành công
+        for (OrderItem item : order.getItems()) {
+            item.getVariant().increaseStock(item.getQuantity());
+            variantRepository.save(item.getVariant());
+        }
+
+        Order updated = orderRepository.save(order);
+        return mapToDetailResponse(updated);
+    }
+
     private OrderResponse mapToResponse(Order order) {
-        // 1. Tính tổng số lượng món (Giữ nguyên)
         int totalItems = 0;
         if (order.getItems() != null) {
             for (OrderItem item : order.getItems()) {
@@ -261,26 +297,21 @@ public class OrderService {
             }
         }
 
-        // 2. Lấy trực tiếp từ cột mới trong Database
         boolean isPos = Boolean.TRUE.equals(order.getIsPos());
 
-        // 🚀 Ưu tiên lấy địa chỉ ở cột mới, nếu không có mới lấy từ bảng UserAddress (fallback)
         String deliveryAddress = order.getDeliveryAddress();
         if (deliveryAddress == null && order.getAddress() != null) {
             deliveryAddress = order.getAddress().getFullAddress();
         }
 
-        // 🚀 Lấy số điện thoại trực tiếp từ cột mới
         String phone = order.getPhone();
         if (phone == null && order.getUser() != null) {
             phone = order.getUser().getPhone();
         }
 
-        // 3. Logic hiển thị tên khách hàng
         boolean isAdmin = order.getUser() != null && "ADMIN".equalsIgnoreCase(order.getUser().getRole());
         String displayFullName = (order.getUser() != null && !isAdmin) ? order.getUser().getFullName() : "Khách lẻ";
 
-        // ✅ Vẫn giữ logic Note POS để hỗ trợ hiển thị dữ liệu cho các đơn cũ bạn đã tạo trước đó
         if (isPos && order.getStatusHistory() != null) {
             for (OrderStatusHistory h : order.getStatusHistory()) {
                 if (h.getNote() != null && h.getNote().contains("POS")) {
@@ -293,13 +324,12 @@ public class OrderService {
             }
         }
 
-        // 4. Trả về DTO đã được lấp đầy dữ liệu mới
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .userId((order.getUser() != null) ? order.getUser().getUserId() : null)
                 .userFullName(displayFullName)
-                .fullName(displayFullName) // Để đồng bộ với các màn hình khác
-                .phone(phone)              // 🚀 Gửi phone xuống để hiện ở cột Khách hàng
+                .fullName(displayFullName)
+                .phone(phone)
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
                 .subTotal(order.getSubTotal())
@@ -310,13 +340,12 @@ public class OrderService {
                 .customerCash(order.getCustomerCash())
                 .changeAmount(order.getChangeAmount())
                 .totalItems(totalItems)
-                .isPos(isPos)                     // 🚀 Gửi cờ isPos để Frontend lên màu Badge
+                .isPos(isPos)
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .build();
     }
 
     private OrderDetailResponse mapToDetailResponse(Order order) {
-        // 1. Map danh sách sản phẩm và lịch sử trạng thái (Giữ nguyên)
         List<OrderItemResponse> itemResponses = new ArrayList<>();
         if (order.getItems() != null) {
             for (OrderItem item : new ArrayList<>(order.getItems())) {
@@ -331,23 +360,16 @@ public class OrderService {
             }
         }
 
-        // 2. Xác định các thông tin cơ bản từ cột mới
         String promoCodeUsed = (order.getPromotion() != null) ? order.getPromotion().getPromoCode() : null;
-
-        // 🚀 Lấy trực tiếp từ cột isPos mới
         boolean isPos = Boolean.TRUE.equals(order.getIsPos());
         boolean isAdmin = order.getUser() != null && "ADMIN".equalsIgnoreCase(order.getUser().getRole());
 
-        // 3. Xử lý Tên - Số điện thoại - Địa chỉ (Ưu tiên cột mới)
         String displayFullName = (order.getUser() != null && !isAdmin) ? order.getUser().getFullName() : "Khách lẻ";
-
-        // 🚀 Lấy Phone trực tiếp
         String displayPhone = order.getPhone();
         if (displayPhone == null && order.getUser() != null) {
             displayPhone = order.getUser().getPhone();
         }
 
-        // 🚀 Lấy Địa chỉ trực tiếp
         String displayAddress = order.getDeliveryAddress();
         if (displayAddress == null && order.getAddress() != null) {
             displayAddress = order.getAddress().getFullAddress();
@@ -355,7 +377,6 @@ public class OrderService {
 
         String displayEmail = (order.getUser() != null && !isAdmin) ? order.getUser().getEmail() : "";
 
-        // ✅ Logic dự phòng: Nếu là đơn cũ (các trường mới đang null), vẫn dùng split để lấy data cũ
         if (isPos && (displayPhone == null || displayAddress == null)) {
             for (OrderStatusHistory h : order.getStatusHistory()) {
                 if (h.getNote() != null && h.getNote().contains("POS")) {
@@ -368,7 +389,6 @@ public class OrderService {
             }
         }
 
-        // 4. Chuẩn hóa hiển thị cuối cùng
         if (displayAddress == null || displayAddress.trim().isEmpty()) {
             displayAddress = isPos ? "Nhận tại cửa hàng (POS)" : "---";
         }
@@ -376,14 +396,13 @@ public class OrderService {
             displayPhone = isPos ? "Mua tại quầy" : "---";
         }
 
-        // 5. Trả về Response đầy đủ
         return OrderDetailResponse.builder()
                 .orderId(order.getOrderId())
                 .userId((order.getUser() != null) ? order.getUser().getUserId() : null)
                 .userFullName(displayFullName)
                 .userEmail(displayEmail)
                 .userPhone(displayPhone)
-                .deliveryAddress(displayAddress) // "58 Trúc Khê" sẽ hiện ở đây cực chuẩn
+                .deliveryAddress(displayAddress)
                 .paymentMethodName(order.getPaymentMethod().getMethodName())
                 .statusName(order.getStatus().getStatusName())
                 .orderDate(order.getOrderDate())
@@ -394,10 +413,7 @@ public class OrderService {
                 .totalAmount(order.getTotalAmount())
                 .customerCash(order.getCustomerCash())
                 .changeAmount(order.getChangeAmount())
-
-                // 🚀 Đừng quên gửi biến này xuống để Frontend biết đường hiển thị
                 .isPos(isPos)
-
                 .items(itemResponses)
                 .statusHistory(historyResponses)
                 .build();
@@ -422,14 +438,12 @@ public class OrderService {
             System.out.println("Cảnh báo: Bỏ qua lỗi Hibernate Proxy tải ảnh: " + e.getMessage());
         }
 
-        String promotionName = (item.getAppliedPromotion() != null) ? item.getAppliedPromotion().getPromotionName()
-                : null;
+        String promotionName = (item.getAppliedPromotion() != null) ? item.getAppliedPromotion().getPromotionName() : null;
 
         return OrderItemResponse.builder()
                 .orderItemId(item.getOrderItemId())
                 .variantId((variant != null) ? variant.getVariantId() : null)
-                .productName((variant != null && variant.getProduct() != null) ? variant.getProduct().getProductName()
-                        : "Sản phẩm không rõ")
+                .productName((variant != null && variant.getProduct() != null) ? variant.getProduct().getProductName() : "Sản phẩm không rõ")
                 .sizeName((variant != null && variant.getSize() != null) ? variant.getSize().getSizeName() : "N/A")
                 .colorName((variant != null && variant.getColor() != null) ? variant.getColor().getColorName() : "N/A")
                 .quantity(item.getQuantity())
@@ -439,6 +453,7 @@ public class OrderService {
                 .finalPrice(item.getFinalPrice())
                 .subtotal(item.getSubtotal())
                 .imageUrl(imageUrl)
+                .sku((variant != null) ? variant.getSku() : "N/A")
                 .build();
     }
 
@@ -482,7 +497,8 @@ public class OrderService {
 
         validateStatusTransition(currentStatus, targetStatus);
 
-        if ("CANCELLED".equals(targetStatus) || "RETURNED".equals(targetStatus)) {
+        // 🚀 NẾU HỦY HOẶC GIAO THẤT BẠI THÌ CỘNG LẠI KHO
+        if ("CANCELLED".equals(targetStatus) || "FAILED".equals(targetStatus)) {
             for (OrderItem item : order.getItems()) {
                 item.getVariant().increaseStock(item.getQuantity());
                 variantRepository.save(item.getVariant());
@@ -495,35 +511,35 @@ public class OrderService {
         return mapToDetailResponse(updated);
     }
 
+    // ==========================================
+    // 🚀 LÀM CHẶT LUẬT CHUYỂN TRẠNG THÁI
+    // ==========================================
     private void validateStatusTransition(String currentStatus, String targetStatus) {
         switch (currentStatus) {
             case "PENDING":
                 if (!"CONFIRMED".equals(targetStatus) && !"CANCELLED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể chuyển từ PENDING sang " + targetStatus);
+                    throw new BadRequestException("Không thể chuyển từ PENDING sang " + targetStatus);
                 }
                 break;
             case "CONFIRMED":
                 if (!"SHIPPING".equals(targetStatus) && !"CANCELLED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể chuyển từ CONFIRMED sang " + targetStatus);
+                    throw new BadRequestException("Không thể chuyển từ CONFIRMED sang " + targetStatus);
                 }
                 break;
             case "SHIPPING":
-                if (!"DELIVERED".equals(targetStatus) && !"RETURNED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể chuyển từ SHIPPING sang " + targetStatus
-                                    + ". Chỉ có thể chuyển sang DELIVERED hoặc RETURNED");
+                if (!"DELIVERED".equals(targetStatus) && !"FAILED".equals(targetStatus)) {
+                    throw new BadRequestException("Không thể chuyển từ SHIPPING sang " + targetStatus + ". Chỉ có thể chuyển sang DELIVERED (Đã giao) hoặc FAILED (Giao thất bại)");
                 }
                 break;
             case "DELIVERED":
-                if (!"RETURNED".equals(targetStatus)) {
-                    throw new BadRequestException(
-                            "Không thể thay đổi trạng thái đơn hàng đã giao, ngoại trừ hoàn trả (RETURNED)");
+                if (!"COMPLETED".equals(targetStatus) && !"FAILED".equals(targetStatus)) {
+                    throw new BadRequestException("Từ DELIVERED chỉ có thể chuyển sang COMPLETED (Hoàn thành) hoặc FAILED (Giao thất bại/Khiếu nại)");
                 }
                 break;
-            case "RETURNED":
-                throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã hoàn trả");
+            case "COMPLETED":
+                throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã hoàn thành");
+            case "FAILED":
+                throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã thất bại");
             case "CANCELLED":
                 throw new BadRequestException("Không thể thay đổi trạng thái đơn hàng đã hủy");
             default:
@@ -566,16 +582,13 @@ public class OrderService {
                 }
             }
 
-            // Chọn trạng thái: Giao hàng -> XÁC NHẬN | Lấy tại quầy -> ĐÃ GIAO
-            String targetStatusName = (isPos && !isDelivery) ? "DELIVERED" : "CONFIRMED";
+            String targetStatusName = (isPos && !isDelivery) ? "COMPLETED" : "CONFIRMED";
             OrderStatus targetStatus = statusRepository.findByStatusName(targetStatusName).orElse(null);
 
-            // 🟢 ĐÃ THÁO CHỐT CHẶN: VNPAY gọi về là auto update trạng thái!
             if (targetStatus != null) {
                 order.updateStatus(targetStatus, "Đã thanh toán VNPAY (Tự động cập nhật)");
                 orderRepository.save(order);
             }
         }
     }
-
 }

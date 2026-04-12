@@ -3,6 +3,7 @@ package com.ballhub.ballhub_backend.controller;
 import java.util.HashMap;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -148,6 +149,42 @@ public class OrderController {
             @RequestParam(required = false) String note) {
         OrderDetailResponse order = orderService.updateOrderStatus(id, statusId, note);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành công", order));
+    }
+
+    // ==========================================
+    // 🚀 API: KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
+    // ==========================================
+    @PostMapping("/{orderId}/confirm-received")
+    public ResponseEntity<?> confirmReceived(
+            @PathVariable Integer orderId,
+            Authentication authentication) { // Đã sửa: dùng Authentication
+        try {
+            // Lấy userId chuẩn theo hàm getUserId của bạn
+            Integer userId = getUserId(authentication);
+
+            var response = orderService.confirmReceived(userId, orderId);
+            return ResponseEntity.ok(ApiResponse.success("Xác nhận nhận hàng thành công", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // ==========================================
+    // 🚀 API: KHÁCH HÀNG KHIẾU NẠI CHƯA NHẬN HÀNG
+    // ==========================================
+    @PostMapping("/{orderId}/report-not-received")
+    public ResponseEntity<?> reportNotReceived(
+            @PathVariable Integer orderId,
+            Authentication authentication) { // Đã sửa: dùng Authentication
+        try {
+            // Lấy userId chuẩn theo hàm getUserId của bạn
+            Integer userId = getUserId(authentication);
+
+            var response = orderService.reportNotReceived(userId, orderId);
+            return ResponseEntity.ok(ApiResponse.success("Đã gửi khiếu nại thành công", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     private Integer getUserId(Authentication authentication) {
