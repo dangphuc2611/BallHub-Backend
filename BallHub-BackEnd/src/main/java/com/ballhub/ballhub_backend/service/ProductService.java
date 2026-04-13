@@ -372,8 +372,12 @@ public class ProductService {
                                         .min(java.math.BigDecimal::compareTo)
                                         .orElse(java.math.BigDecimal.ZERO);
 
-                                // Dùng constructor của DTO, không bao giờ lo lỗi kiểu dữ liệu
-                                return new ProductSimpleResponse(p.getProductId(), p.getProductName(), minPrice);
+                                // ✅ BƯỚC 2: Kiểm tra xem sản phẩm có đang chạy Flash Sale không
+                                Integer activePercent = variantPromotionRepository.findActiveFlashSaleDiscountByProductId(p.getProductId());
+                                boolean isFlashSale = (activePercent != null && activePercent > 0);
+
+                                // Nhét thêm isFlashSale vào tham số thứ 4
+                                return new ProductSimpleResponse(p.getProductId(), p.getProductName(), minPrice, isFlashSale);
                         })
                         .collect(Collectors.toList());
         }

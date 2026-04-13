@@ -15,4 +15,5 @@ public class ProductSimpleResponse {
     private Integer productId;
     private String productName;
     private java.math.BigDecimal price;
+    private Boolean isFlashSale;
 }

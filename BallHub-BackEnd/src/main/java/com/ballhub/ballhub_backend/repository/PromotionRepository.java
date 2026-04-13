@@ -24,12 +24,12 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     boolean existsByPromoCodeAndPromotionIdNot(String promoCode, Integer promotionId);
 
-    // Tìm tất cả voucher có phân trang
-    @Query("SELECT p FROM Promotion p WHERE p.promoCode IS NOT NULL ORDER BY p.promotionId DESC")
+    // Tìm tất cả voucher có phân trang (✅ ĐÃ SỬA: CHẶN MÃ FLASH_)
+    @Query("SELECT p FROM Promotion p WHERE p.promoCode IS NOT NULL AND p.promoCode NOT LIKE 'FLASH_%' ORDER BY p.promotionId DESC")
     Page<Promotion> findAllVouchers(Pageable pageable);
 
-    // Tìm Voucher cho khách nhập mã (còn hiệu lực)
-    @Query("SELECT p FROM Promotion p WHERE p.promoCode IS NOT NULL " +
+    // Tìm Voucher cho khách nhập mã (còn hiệu lực) (✅ ĐÃ SỬA: CHẶN MÃ FLASH_)
+    @Query("SELECT p FROM Promotion p WHERE p.promoCode IS NOT NULL AND p.promoCode NOT LIKE 'FLASH_%' " +
             "AND p.status = true " +
             "AND (p.startDate IS NULL OR p.startDate <= CURRENT_TIMESTAMP) " +
             "AND (p.endDate IS NULL OR p.endDate >= CURRENT_TIMESTAMP) " +
