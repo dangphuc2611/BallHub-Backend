@@ -16,8 +16,9 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     Optional<Promotion> findByPromoCode(String promoCode);
 
-    // Thêm dòng này để tìm Flash Sale (không cần nhập mã code)
-    Optional<Promotion> findByDiscountPercentAndPromoCodeIsNull(Integer discountPercent);
+    // Sửa lại: Tìm Flash Sale dựa trên việc mã Code có chữ FLASH_ hoặc rỗng
+    @Query("SELECT p FROM Promotion p WHERE p.discountPercent = :discountPercent AND (p.promoCode IS NULL OR p.promoCode LIKE 'FLASH_%')")
+    Optional<Promotion> findByDiscountPercentAndPromoCodeLikeFlash(@Param("discountPercent") Integer discountPercent);
 
     boolean existsByPromoCode(String promoCode);
 
@@ -40,7 +41,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
             "JOIN p.variantPromotions vp " +
             "WHERE vp.variant.variantId = :variantId " +
             "AND p.status = true " +
-            "AND p.promoCode IS NULL " +
+            "AND (p.promoCode IS NULL OR p.promoCode LIKE 'FLASH_%') " +
             "AND (p.startDate IS NULL OR p.startDate <= CURRENT_TIMESTAMP) " +
             "AND (p.endDate IS NULL OR p.endDate >= CURRENT_TIMESTAMP)")
     Optional<Promotion> findActivePromotionForVariant(@Param("variantId") Integer variantId);

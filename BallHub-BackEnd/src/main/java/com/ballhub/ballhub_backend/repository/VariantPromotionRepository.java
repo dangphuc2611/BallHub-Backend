@@ -34,7 +34,7 @@ public interface VariantPromotionRepository extends JpaRepository<VariantPromoti
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query("DELETE FROM VariantPromotion vp WHERE vp.variant IN :variants AND vp.promotion.promoCode IS NULL")
+    @Query("DELETE FROM VariantPromotion vp WHERE vp.variant IN :variants AND (vp.promotion.promoCode IS NULL OR vp.promotion.promoCode LIKE 'FLASH_%')")
     void deleteFlashSalesByVariants(@Param("variants") List<ProductVariant> variants);
 
     /**
@@ -42,10 +42,11 @@ public interface VariantPromotionRepository extends JpaRepository<VariantPromoti
      */
     @Query("SELECT MAX(p.discountPercent) FROM VariantPromotion vp " +
             "JOIN vp.promotion p " +
-            "WHERE vp.variant.product.productId = :productId " +
-            "AND p.promoCode IS NULL " +
+            "JOIN vp.variant v " +
+            "WHERE v.product.productId = :productId " +
             "AND p.status = true " +
             "AND (p.startDate IS NULL OR p.startDate <= CURRENT_TIMESTAMP) " +
-            "AND (p.endDate IS NULL OR p.endDate >= CURRENT_TIMESTAMP)")
+            "AND (p.endDate IS NULL OR p.endDate >= CURRENT_TIMESTAMP) " +
+            "AND (p.promoCode IS NULL OR p.promoCode LIKE 'FLASH_%')")
     Integer findActiveFlashSaleDiscountByProductId(@Param("productId") Integer productId);
 }

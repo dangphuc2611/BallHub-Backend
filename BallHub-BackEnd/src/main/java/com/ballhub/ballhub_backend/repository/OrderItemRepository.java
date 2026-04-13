@@ -17,7 +17,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
 
     /**
      * Lấy top sản phẩm bán chạy nhất dựa trên số lượng
-     * Chỉ tính đơn hàng có status = 'DELIVERED'
+     * Chỉ tính các đơn hàng đã 'COMPLETED' (Hoàn thành)
      */
     @Query("""
                 SELECT new com.ballhub.ballhub_backend.dto.response.admin.ProductSalesDTO(
@@ -30,7 +30,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
                 JOIN oi.variant pv
                 JOIN pv.product p
                 JOIN oi.order o
-                WHERE o.status.statusName = 'DELIVERED'
+                WHERE o.status.statusName = 'COMPLETED' 
                 GROUP BY p.productId, p.productName
                 ORDER BY SUM(oi.quantity) DESC
             """)

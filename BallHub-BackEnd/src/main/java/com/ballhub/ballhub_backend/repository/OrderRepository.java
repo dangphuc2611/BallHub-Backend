@@ -27,12 +27,12 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     /**
      * Đếm tổng số lượng đơn hàng trong hệ thống
      */
-    @Query("SELECT COUNT(o) FROM Order o")
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.status.statusName = 'COMPLETED'")
     Long countTotalOrders();
 
     /**
      * Tính tổng doanh thu từ các đơn hàng đã DELIVERED
      */
-    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status.statusName = 'DELIVERED'")
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status.statusName = 'COMPLETED'")
     BigDecimal sumTotalRevenue();
 }

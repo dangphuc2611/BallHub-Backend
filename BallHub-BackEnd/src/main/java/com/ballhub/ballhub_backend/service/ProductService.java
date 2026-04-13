@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map; // ✅ Bổ sung import này
@@ -201,13 +202,13 @@ public class ProductService {
                 variantPromotionRepository.deleteFlashSalesByVariants(variants);
 
                 if (newDiscount != null && newDiscount > 0) {
-                        Promotion promo = promotionRepository.findByDiscountPercentAndPromoCodeIsNull(newDiscount)
+                        Promotion promo = promotionRepository.findByDiscountPercentAndPromoCodeLikeFlash(newDiscount)
                                 .orElseGet(() -> {
                                         Promotion newPromo = new Promotion();
                                         newPromo.setPromotionName("Flash Sale " + newDiscount + "%");
                                         newPromo.setDiscountPercent(newDiscount);
-                                        newPromo.setStartDate(java.time.LocalDateTime.now());
-                                        newPromo.setEndDate(java.time.LocalDateTime.now().plusYears(10));
+                                        newPromo.setStartDate(LocalDateTime.now());
+                                        newPromo.setEndDate(LocalDateTime.now().plusYears(10));
                                         newPromo.setStatus(true);
                                         return promotionRepository.save(newPromo);
                                 });

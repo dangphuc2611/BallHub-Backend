@@ -1,7 +1,6 @@
 package com.ballhub.ballhub_backend.repository;
 
 import com.ballhub.ballhub_backend.entity.Product;
-import com.ballhub.ballhub_backend.entity.ProductContent;
 import com.ballhub.ballhub_backend.entity.ProductImage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,17 +19,14 @@ public interface ProductRepository
         extends JpaRepository<Product, Integer>, JpaSpecificationExecutor<Product> {
 
     // =====================================================
-    // BASIC
+    // BASIC (GIỮ NGUYÊN)
     // =====================================================
-
     Page<Product> findByStatusTrue(Pageable pageable);
-
     Optional<Product> findByProductIdAndStatusTrue(Integer id);
 
     // =====================================================
-    // SEARCH
+    // SEARCH (GIỮ NGUYÊN)
     // =====================================================
-
     @Query("""
         SELECT p FROM Product p
         WHERE p.status = true
@@ -46,9 +42,8 @@ public interface ProductRepository
     );
 
     // =====================================================
-    // SORT ONLY
+    // SORT ONLY (GIỮ NGUYÊN)
     // =====================================================
-
     @Query("""
         SELECT p FROM Product p
         JOIN p.variants v
@@ -72,9 +67,8 @@ public interface ProductRepository
     Page<Product> findAllOrderByMinPriceDesc(Pageable pageable);
 
     // =====================================================
-    // PRODUCT DETAIL
+    // PRODUCT DETAIL (GIỮ NGUYÊN)
     // =====================================================
-
     @Query("SELECT DISTINCT p FROM Product p " +
             "LEFT JOIN FETCH p.variants v " +
             "LEFT JOIN FETCH v.size " +
@@ -89,10 +83,8 @@ public interface ProductRepository
     List<ProductImage> findImagesByProductId(@Param("productId") Integer productId);
 
     // =====================================================
-    // FILTER + SORT + PAGING (SHOP CORE)
+    // FILTER + SORT + PAGING (SHOP CORE) - ĐÃ CẬP NHẬT LOGIC FLASH SALE
     // =====================================================
-
-    // ✅ BẢN VÁ: Loại bỏ GROUP BY, dùng DISTINCT và Subquery để Sort tránh lỗi SQL Server
     @Query(value = """
     SELECT p.* FROM Products p
     WHERE p.Status = 1
@@ -125,7 +117,9 @@ public interface ProductRepository
                 SELECT v_sale.ProductID FROM ProductVariants v_sale
                 JOIN VariantPromotions vp ON v_sale.VariantID = vp.VariantID
                 JOIN Promotions pr ON vp.PromotionID = pr.PromotionID
-                WHERE pr.Status = 1 AND pr.PromoCode IS NULL
+                WHERE pr.Status = 1 
+                  -- ✅ SỬA TẠI ĐÂY: Chấp nhận cả NULL và mã FLASH_
+                  AND (pr.PromoCode IS NULL OR pr.PromoCode LIKE 'FLASH_%')
                   AND (pr.StartDate IS NULL OR pr.StartDate <= CURRENT_TIMESTAMP)
                   AND (pr.EndDate IS NULL OR pr.EndDate >= CURRENT_TIMESTAMP)
                   AND pr.DiscountPercent > 0
@@ -166,7 +160,9 @@ public interface ProductRepository
           SELECT v_sub.ProductID FROM ProductVariants v_sub
           JOIN VariantPromotions vp ON v_sub.VariantID = vp.VariantID
           JOIN Promotions pr ON vp.PromotionID = pr.PromotionID
-          WHERE pr.Status = 1 AND pr.PromoCode IS NULL
+          WHERE pr.Status = 1 
+            -- ✅ SỬA TẠI ĐÂY: Đồng bộ logic cho CountQuery
+            AND (pr.PromoCode IS NULL OR pr.PromoCode LIKE 'FLASH_%')
             AND (pr.StartDate IS NULL OR pr.StartDate <= CURRENT_TIMESTAMP)
             AND (pr.EndDate IS NULL OR pr.EndDate >= CURRENT_TIMESTAMP)
             AND pr.DiscountPercent > 0
@@ -196,7 +192,8 @@ public interface ProductRepository
         JOIN Promotions pr ON vp.PromotionID = pr.PromotionID
         WHERE v.ProductID = :productId
           AND pr.Status = 1
-          AND pr.PromoCode IS NULL
+          -- ✅ SỬA TẠI ĐÂY: Đảm bảo tính toán % giảm giá đúng cho cả sản phẩm tạo từ web
+          AND (pr.PromoCode IS NULL OR pr.PromoCode LIKE 'FLASH_%')
           AND (pr.StartDate IS NULL OR pr.StartDate <= CURRENT_TIMESTAMP)
           AND (pr.EndDate IS NULL OR pr.EndDate >= CURRENT_TIMESTAMP)
     """, nativeQuery = true)

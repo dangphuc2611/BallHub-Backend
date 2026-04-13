@@ -44,10 +44,17 @@ public class PromotionService {
     // ADMIN: TẠO KHUYẾN MÃI / VOUCHER
     // ============================================
     public PromotionResponse createPromotion(PromotionRequest request) {
-        // 1. Kiểm tra trùng mã code (nếu có nhập code)
-        if (request.getPromoCode() != null && !request.getPromoCode().isEmpty()
-                && promotionRepository.existsByPromoCode(request.getPromoCode())) {
-            throw new BadRequestException("Mã giảm giá '" + request.getPromoCode() + "' đã tồn tại!");
+
+        // 🚀 FIX LỖI UNIQUE NULL: Nếu Frontend không gửi PromoCode (Flash Sale), tự sinh ra một mã ảo ngẫu nhiên
+        String finalPromoCode = request.getPromoCode();
+        if (finalPromoCode == null || finalPromoCode.trim().isEmpty()) {
+            finalPromoCode = "FLASH_" + System.currentTimeMillis();
+        } else {
+            finalPromoCode = finalPromoCode.trim().toUpperCase();
+            // 1. Kiểm tra trùng mã code (nếu có nhập code thật)
+            if (promotionRepository.existsByPromoCode(finalPromoCode)) {
+                throw new BadRequestException("Mã giảm giá '" + finalPromoCode + "' đã tồn tại!");
+            }
         }
 
         // 2. Validate ngày tháng
@@ -59,7 +66,7 @@ public class PromotionService {
         // 3. Xây dựng đối tượng Promotion
         Promotion promotion = Promotion.builder()
                 .promotionName(request.getPromotionName())
-                .promoCode(request.getPromoCode() != null ? request.getPromoCode().toUpperCase() : null)
+                .promoCode(finalPromoCode) // 👈 Truyền mã (thật hoặc ảo) vào đây
                 .description(request.getDescription())
                 .discountType(request.getDiscountType())
                 .discountPercent(request.getDiscountPercent())
@@ -80,8 +87,10 @@ public class PromotionService {
             applyPromotionToProducts(savedPromotion, request.getProductIds());
         }
 
-        // 6. GỬI EMAIL MARKETING (Hệ thống chạy ngầm)
-        if (savedPromotion.getPromoCode() != null && Boolean.TRUE.equals(savedPromotion.getStatus())) {
+        // 6. GỬI EMAIL MARKETING (Chỉ gửi nếu là Voucher thật do user tạo, không gửi cho mã ảo FLASH_)
+        if (savedPromotion.getPromoCode() != null &&
+                !savedPromotion.getPromoCode().startsWith("FLASH_") &&
+                Boolean.TRUE.equals(savedPromotion.getStatus())) {
             sendMarketingEmail(savedPromotion);
         }
 
@@ -95,15 +104,20 @@ public class PromotionService {
         Promotion promotion = promotionRepository.findById(promoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
 
-        // Kiểm tra trùng mã code nếu có thay đổi
-        if (request.getPromoCode() != null &&
-                !request.getPromoCode().equalsIgnoreCase(promotion.getPromoCode()) &&
-                promotionRepository.existsByPromoCode(request.getPromoCode())) {
-            throw new BadRequestException("Mã giảm giá mới đã tồn tại!");
+        // 🚀 Xử lý mã code cho Cập nhật
+        String finalPromoCode = request.getPromoCode();
+        if (finalPromoCode != null && !finalPromoCode.trim().isEmpty()) {
+            finalPromoCode = finalPromoCode.trim().toUpperCase();
+            // Kiểm tra trùng mã code nếu có thay đổi
+            if (!finalPromoCode.equalsIgnoreCase(promotion.getPromoCode()) &&
+                    promotionRepository.existsByPromoCode(finalPromoCode)) {
+                throw new BadRequestException("Mã giảm giá mới đã tồn tại!");
+            }
+            promotion.setPromoCode(finalPromoCode);
         }
+        // Nếu Frontend gửi lên rỗng (Cập nhật Flash Sale), thì GIỮ NGUYÊN PromoCode cũ (đừng set NULL)
 
         promotion.setPromotionName(request.getPromotionName());
-        promotion.setPromoCode(request.getPromoCode() != null ? request.getPromoCode().toUpperCase() : null);
         promotion.setDescription(request.getDescription());
         promotion.setDiscountType(request.getDiscountType());
         promotion.setDiscountPercent(request.getDiscountPercent());
@@ -218,13 +232,18 @@ public class PromotionService {
     // MAPPING: ENTITY -> RESPONSE DTO
     // ============================================
     private PromotionResponse mapToResponse(Promotion p) {
-        // Lấy danh sách tên sản phẩm để trả về (Dùng query có sẵn trong Repository của bạn)
         List<String> productNames = promotionRepository.findProductNamesByPromotionId(p.getPromotionId());
+
+        // 🚀 BÍ KÍP Ở ĐÂY: Giấu cái mã ảo đi khi trả về cho Frontend
+        String displayPromoCode = p.getPromoCode();
+        if (displayPromoCode != null && displayPromoCode.startsWith("FLASH_")) {
+            displayPromoCode = null; // Trả về null để web nhận diện là Flash Sale
+        }
 
         return PromotionResponse.builder()
                 .promotionId(p.getPromotionId())
                 .promotionName(p.getPromotionName())
-                .promoCode(p.getPromoCode())
+                .promoCode(displayPromoCode) // 👈 Dùng biến đã được giấu
                 .description(p.getDescription())
                 .discountType(p.getDiscountType())
                 .discountPercent(p.getDiscountPercent())
@@ -236,7 +255,7 @@ public class PromotionService {
                 .endDate(p.getEndDate())
                 .status(p.getStatus())
                 .valid(p.isValid())
-                .appliedProductCount(productNames.size()) // Trả về số lượng sản phẩm áp dụng
+                .appliedProductCount(productNames.size())
                 .build();
     }
 }
