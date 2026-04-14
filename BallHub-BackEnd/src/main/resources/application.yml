@@ -6,7 +6,7 @@ spring:
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=BallHub;encrypt=true;trustServerCertificate=true
     username: sa
-    password: 123
+    password: Password@1
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   # JPA Configuration
