@@ -2,10 +2,7 @@ package com.ballhub.ballhub_backend.controller;
 
 import com.ballhub.ballhub_backend.dto.response.ApiResponse;
 import com.ballhub.ballhub_backend.dto.response.PageResponse;
-import com.ballhub.ballhub_backend.dto.response.product.ProductDetailResponse;
-import com.ballhub.ballhub_backend.dto.response.product.ProductResponse;
-import com.ballhub.ballhub_backend.dto.response.product.ProductSimpleResponse;
-import com.ballhub.ballhub_backend.dto.response.product.VariantResponse;
+import com.ballhub.ballhub_backend.dto.response.product.*;
 import com.ballhub.ballhub_backend.dto.request.product.*;
 import com.ballhub.ballhub_backend.service.ProductService;
 import jakarta.validation.Valid;
@@ -141,15 +138,24 @@ public class ProductController {
     // ADMIN - Add images to product from static resources
     @PostMapping("/admin/products/{id}/images")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> addImagesToProduct(
-            @PathVariable Integer id,
-            @RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<String> imageUrls = (List<String>) body.get("imageUrls");
-        Boolean isMain = body.get("isMain") != null && (Boolean) body.get("isMain");
-        productService.addImagesToProduct(id, imageUrls, isMain);
-        return ResponseEntity.ok(ApiResponse.success("Thêm ảnh thành công", null));
-    }
+        public ResponseEntity<ApiResponse<?>> addImagesToProduct(
+                @PathVariable Integer id,
+                @RequestBody Map<String, Object> body) {
+            @SuppressWarnings("unchecked")
+            List<String> imageUrls = (List<String>) body.get("imageUrls");
+            Boolean isMain = body.get("isMain") != null && (Boolean) body.get("isMain");
+            Integer variantId = body.get("variantId") != null ? Integer.valueOf(body.get("variantId").toString()) : null;
+            List<ProductImageResponse> images = productService.addImagesToProduct(id, imageUrls, isMain, variantId);
+            return ResponseEntity.ok(ApiResponse.success("Thêm ảnh thành công", images));
+        }
+
+        // ADMIN - Delete image from product
+        @DeleteMapping("/admin/products/images/{imageId}")
+        @PreAuthorize("hasRole('ADMIN')")
+        public ResponseEntity<ApiResponse<?>> deleteProductImage(@PathVariable Integer imageId) {
+            productService.deleteProductImage(imageId);
+            return ResponseEntity.ok(ApiResponse.success("Xóa ảnh thành công", null));
+        }
 
     // ADMIN - List all static images from resources/static/img
     @GetMapping("/admin/images/static")

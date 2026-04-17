@@ -1,11 +1,13 @@
 package com.ballhub.ballhub_backend.dto.response.product;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -27,4 +29,7 @@ public class VariantResponse {
     private Integer stockQuantity;
     private String sku;
     private Boolean status;
+    
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private List<ProductImageResponse> images;
 }

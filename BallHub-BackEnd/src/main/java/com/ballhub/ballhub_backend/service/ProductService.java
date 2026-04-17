@@ -231,9 +231,18 @@ public class ProductService {
                 productRepository.save(product);
         }
 
-        public void addImagesToProduct(Integer productId, List<String> imageUrls, Boolean setFirstAsMain) {
+        public List<ProductImageResponse> addImagesToProduct(Integer productId, List<String> imageUrls, Boolean setFirstAsMain, Integer variantId) {
                 Product product = productRepository.findById(productId)
                         .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+
+                ProductVariant variant = null;
+                if (variantId != null) {
+                        variant = variantRepository.findById(variantId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Variant không tồn tại"));
+                        if (!variant.getProduct().getProductId().equals(productId)) {
+                                throw new BadRequestException("Variant không thuộc sản phẩm này");
+                        }
+                }
 
                 if (Boolean.TRUE.equals(setFirstAsMain)) {
                         List<ProductImage> existing = imageRepository.findByProductProductId(productId);
@@ -241,17 +250,26 @@ public class ProductService {
                         imageRepository.saveAll(existing);
                 }
 
+                List<ProductImage> savedList = new ArrayList<>();
                 boolean firstImage = Boolean.TRUE.equals(setFirstAsMain);
                 for (int i = 0; i < imageUrls.size(); i++) {
                         String url = imageUrls.get(i);
                         boolean isMain = firstImage && (i == 0);
                         ProductImage image = ProductImage.builder()
                                 .product(product)
+                                .variant(variant)
                                 .imageUrl(url)
                                 .isMain(isMain)
                                 .build();
-                        imageRepository.save(image);
+                        savedList.add(imageRepository.save(image));
                 }
+                return savedList.stream().map(this::mapToImageResponse).collect(Collectors.toList());
+        }
+        public void deleteProductImage(Integer imageId) {
+                if (!imageRepository.existsById(imageId)) {
+                        throw new ResourceNotFoundException("Ảnh không tồn tại");
+                }
+                imageRepository.deleteById(imageId);
         }
 
         public VariantResponse addVariant(Integer productId, CreateVariantRequest request) {
@@ -545,6 +563,9 @@ public class ProductService {
                                 BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                         dynamicFinalPrice = basePrice.multiply(multiplier);
                 }
+                List<ProductImageResponse> variantImages = variant.getImages() != null ? 
+                        variant.getImages().stream().map(this::mapToImageResponse).collect(Collectors.toList()) : 
+                        null;
 
                 return VariantResponse.builder()
                         .variantId(variant.getVariantId())
@@ -567,6 +588,7 @@ public class ProductService {
                         .stockQuantity(variant.getStockQuantity())
                         .sku(variant.getSku())
                         .status(variant.getStatus())
+                        .images(variantImages)
                         .build();
         }
 
