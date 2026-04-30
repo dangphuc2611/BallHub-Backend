@@ -1,7 +1,15 @@
 package com.ballhub.ballhub_backend.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.ballhub.ballhub_backend.dto.response.admin.DailyRevenueDTO;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -76,11 +84,29 @@ public class AdminService {
     if (topProductsLimit > 100)
       topProductsLimit = 100;
 
+    // Lấy doanh thu 7 ngày qua
+    LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(6).with(LocalTime.MIN);
+    List<DailyRevenueDTO> rawRevenue = orderRepository.getRevenueByDateRange(sevenDaysAgo);
+
+    // Điền các ngày thiếu bằng 0
+    Map<LocalDate, BigDecimal> revenueMap = rawRevenue.stream()
+            .collect(Collectors.toMap(DailyRevenueDTO::getDate, DailyRevenueDTO::getRevenue));
+
+    List<DailyRevenueDTO> dailyRevenue = new ArrayList<>();
+    for (int i = 6; i >= 0; i--) {
+      LocalDate date = LocalDate.now().minusDays(i);
+      dailyRevenue.add(DailyRevenueDTO.builder()
+              .date(date)
+              .revenue(revenueMap.getOrDefault(date, BigDecimal.ZERO))
+              .build());
+    }
+
     return DashboardStatsResponse.builder()
         .totalOrders(getTotalOrders())
         .totalRevenue(getTotalRevenue())
         .totalCustomers(getTotalCustomers())
         .topProducts(getTopProducts(topProductsLimit))
+        .dailyRevenue(dailyRevenue)
         .build();
   }
 

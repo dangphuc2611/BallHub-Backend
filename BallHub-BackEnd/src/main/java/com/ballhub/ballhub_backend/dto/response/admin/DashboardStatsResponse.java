@@ -22,4 +22,5 @@ public class DashboardStatsResponse {
   private BigDecimal totalRevenue; // Tổng doanh thu (từ đơn hàng đã giao)
   private Long totalCustomers; // Tổng số khách hàng đã đăng ký
   private List<ProductSalesDTO> topProducts; // Top 10 sản phẩm bán chạy nhất
+  private List<DailyRevenueDTO> dailyRevenue; // Doanh thu 7 ngày qua
 }
