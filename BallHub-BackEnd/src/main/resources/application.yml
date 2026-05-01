@@ -4,8 +4,8 @@ spring:
 
   # Database Configuration
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=BallHub;encrypt=true;trustServerCertificate=true
-    username: sa
+    url: jdbc:sqlserver://ballhubdb.database.windows.net:1433;database=BallHub;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;
+    username: ballhubAdmin
     password: Password@1
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 

@@ -9,13 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.ballhub.ballhub_backend.dto.response.admin.DailyRevenueDTO;
-
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ballhub.ballhub_backend.dto.response.admin.DailyRevenueDTO;
 import com.ballhub.ballhub_backend.dto.response.admin.DashboardStatsResponse;
 import com.ballhub.ballhub_backend.dto.response.admin.ProductSalesDTO;
 import com.ballhub.ballhub_backend.repository.OrderItemRepository;
@@ -90,15 +89,15 @@ public class AdminService {
 
     // Điền các ngày thiếu bằng 0
     Map<LocalDate, BigDecimal> revenueMap = rawRevenue.stream()
-            .collect(Collectors.toMap(DailyRevenueDTO::getDate, DailyRevenueDTO::getRevenue));
+        .collect(Collectors.toMap(DailyRevenueDTO::getDate, DailyRevenueDTO::getRevenue));
 
     List<DailyRevenueDTO> dailyRevenue = new ArrayList<>();
     for (int i = 6; i >= 0; i--) {
       LocalDate date = LocalDate.now().minusDays(i);
       dailyRevenue.add(DailyRevenueDTO.builder()
-              .date(date)
-              .revenue(revenueMap.getOrDefault(date, BigDecimal.ZERO))
-              .build());
+          .date(date)
+          .revenue(revenueMap.getOrDefault(date, BigDecimal.ZERO))
+          .build());
     }
 
     return DashboardStatsResponse.builder()
