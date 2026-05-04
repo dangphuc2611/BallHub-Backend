@@ -66,8 +66,12 @@ public class PaymentController {
         vnp_Params.put("vnp_ReturnUrl", vnp_ReturnUrl);
         vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
 
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        // Đã sửa múi giờ chuẩn VN
+        TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+        Calendar cld = Calendar.getInstance(timeZone);
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        formatter.setTimeZone(timeZone); // Bắt buộc phải thêm dòng này
+
         String vnp_CreateDate = formatter.format(cld.getTime());
         vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
 
@@ -145,9 +149,11 @@ public class PaymentController {
         }
 
         if ("00".equals(vnp_ResponseCode)) {
-            response.sendRedirect("http://localhost:3000/order-success/" + realOrderIdStr);
+            // Thay localhost bằng link Vercel của sếp
+            response.sendRedirect("https://ballhub-front-end.vercel.app/order-success/" + realOrderIdStr);
         } else {
-            response.sendRedirect("http://localhost:3000/checkout?payment_error=true");
+            // Thay localhost bằng link Vercel của sếp
+            response.sendRedirect("https://ballhub-front-end.vercel.app/checkout?payment_error=true");
         }
     }
 }
