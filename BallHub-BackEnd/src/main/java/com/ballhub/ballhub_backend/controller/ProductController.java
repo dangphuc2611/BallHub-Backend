@@ -17,6 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
+
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -157,37 +161,29 @@ public class ProductController {
             return ResponseEntity.ok(ApiResponse.success("Xóa ảnh thành công", null));
         }
 
+
+
     // ADMIN - List all static images from resources/static/img
     @GetMapping("/admin/images/static")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<String>>> listStaticImages() {
         List<String> urls = new ArrayList<>();
         try {
-            ClassPathResource root = new ClassPathResource("static/img");
-            if (root.exists()) {
-                collectImagePaths(root.getFile(), "/img", urls);
-            }
-        } catch (Exception e) {
-            // fallback: return empty list
-        }
-        return ResponseEntity.ok(ApiResponse.success(urls));
-    }
-
-    private void collectImagePaths(File dir, String prefix, List<String> urls) {
-        File[] files = dir.listFiles();
-        if (files == null)
-            return;
-        for (File f : files) {
-            if (f.isDirectory()) {
-                collectImagePaths(f, prefix + "/" + f.getName(), urls);
-            } else {
-                String name = f.getName().toLowerCase();
-                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".webp")
-                        || name.endsWith(".gif")) {
-                    urls.add(prefix + "/" + f.getName());
+            ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+            Resource[] resources = resolver.getResources("classpath*:static/img/**/*.{png,jpg,jpeg,webp,gif}");
+            for (Resource resource : resources) {
+                String path = resource.getURL().getPath();
+                int index = path.lastIndexOf("/static/img/");
+                if (index != -1) {
+                    urls.add(path.substring(index + 7)); // +7 to keep "/img/..."
+                } else if (path.contains("/img/")) {
+                    urls.add(path.substring(path.lastIndexOf("/img/")));
                 }
             }
+        } catch (Exception e) {
+            System.err.println("Error reading static images: " + e.getMessage());
         }
+        return ResponseEntity.ok(ApiResponse.success(urls));
     }
 
     // ADMIN - Add variant to product
