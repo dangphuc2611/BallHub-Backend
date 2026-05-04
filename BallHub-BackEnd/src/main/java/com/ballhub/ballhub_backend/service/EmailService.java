@@ -81,7 +81,7 @@ public class EmailService {
 
             // LƯU Ý: Khi sếp deploy Backend lên server thật (ví dụ: render.com),
             // sếp nhớ sửa baseUrl này thành link server Backend để ảnh hiển thị đúng nhé.
-            String baseUrl = "http://localhost:8080";
+            String baseUrl = "https://ballhub-backend-production.up.railway.app";
 
             for (OrderItemResponse item : order.getItems()) {
                 String imageUrl = "https://placehold.co/100x100?text=BallHub";
