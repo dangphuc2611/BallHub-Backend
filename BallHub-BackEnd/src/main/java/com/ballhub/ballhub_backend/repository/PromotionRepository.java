@@ -28,13 +28,13 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
     @Query("SELECT p FROM Promotion p WHERE p.promoCode IS NOT NULL AND p.promoCode NOT LIKE 'FLASH_%' ORDER BY p.promotionId DESC")
     Page<Promotion> findAllVouchers(Pageable pageable);
 
-    // Tìm Voucher cho khách nhập mã (còn hiệu lực) (✅ ĐÃ SỬA: CHẶN MÃ FLASH_)
+    // Tìm Voucher cho khách nhập mã (còn hiệu lực) - ĐÃ FIX MÚI GIỜ & NULL COUNT
     @Query("SELECT p FROM Promotion p WHERE p.promoCode IS NOT NULL AND p.promoCode NOT LIKE 'FLASH_%' " +
             "AND p.status = true " +
-            "AND (p.startDate IS NULL OR p.startDate <= CURRENT_TIMESTAMP) " +
-            "AND (p.endDate IS NULL OR p.endDate >= CURRENT_TIMESTAMP) " +
-            "AND (p.usageLimit IS NULL OR p.usageLimit = 0 OR p.usedCount < p.usageLimit)")
-    List<Promotion> findValidVouchers();
+            "AND (p.startDate IS NULL OR p.startDate <= :now) " +
+            "AND (p.endDate IS NULL OR p.endDate >= :now) " +
+            "AND (p.usageLimit IS NULL OR p.usageLimit = 0 OR COALESCE(p.usedCount, 0) < p.usageLimit)")
+    List<Promotion> findValidVouchers(@Param("now") java.time.LocalDateTime now);
 
     // TÌM KHUYẾN MÃI TỰ ĐỘNG (10%, 20%) CHO SẢN PHẨM
     @Query("SELECT p FROM Promotion p " +
