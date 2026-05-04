@@ -51,7 +51,8 @@ public class EmailService {
                             "<div style='color: #6b7280; font-size: 14px; margin-top: 15px; font-style: italic; line-height: 1.4;'>" + safeDescription + "</div>" +
                             "</div>" +
                             "<div style='margin-top: 35px;'>" +
-                            "<a href='http://localhost:3000' style='background: #1f2937; color: white; padding: 18px 45px; border-radius: 15px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 16px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);'>SĂN NGAY KẺO HẾT</a>" +
+                            // ĐÃ SỬA LINK Ở ĐÂY
+                            "<a href='https://ballhub-front-end.vercel.app' style='background: #1f2937; color: white; padding: 18px 45px; border-radius: 15px; font-weight: 800; text-decoration: none; display: inline-block; font-size: 16px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);'>SĂN NGAY KẺO HẾT</a>" +
                             "</div>" +
                             "</div>" +
                             "<div style='background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #f3f4f6;'>" +
@@ -67,7 +68,6 @@ public class EmailService {
         }
     }
 
-    // ✅ FIX LUỒNG: Bắt buộc truyền vào OrderDetailResponse (Data chết) chứ không truyền Order (Entity sống)
     @Async
     public void sendOrderSuccessEmail(String toEmail, OrderDetailResponse order) {
         MimeMessage message = mailSender.createMimeMessage();
@@ -78,6 +78,9 @@ public class EmailService {
             helper.setSubject("⚽ Đơn hàng #" + order.getOrderId() + " đã được xác nhận!");
 
             StringBuilder productRows = new StringBuilder();
+
+            // LƯU Ý: Khi sếp deploy Backend lên server thật (ví dụ: render.com),
+            // sếp nhớ sửa baseUrl này thành link server Backend để ảnh hiển thị đúng nhé.
             String baseUrl = "http://localhost:8080";
 
             for (OrderItemResponse item : order.getItems()) {
@@ -141,7 +144,8 @@ public class EmailService {
                             "</div>" +
                             "</div>" +
                             "<div style='text-align: center; margin-top: 35px;'>" +
-                            "<a href='http://localhost:3000/profile/orders' style='background: #111; color: white; padding: 16px 40px; border-radius: 14px; text-decoration: none; font-weight: bold; font-size: 14px;'>THEO DÕI ĐƠN HÀNG</a>" +
+                            // ĐÃ SỬA LINK Ở ĐÂY
+                            "<a href='https://ballhub-front-end.vercel.app/profile/orders' style='background: #111; color: white; padding: 16px 40px; border-radius: 14px; text-decoration: none; font-weight: bold; font-size: 14px;'>THEO DÕI ĐƠN HÀNG</a>" +
                             "</div>" +
                             "</div>" +
                             "<div style='background: #111; padding: 30px; text-align: center; color: #666; font-size: 11px;'>" +
