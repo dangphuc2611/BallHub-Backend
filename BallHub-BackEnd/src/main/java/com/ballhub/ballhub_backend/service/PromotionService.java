@@ -223,7 +223,8 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public List<PromotionResponse> getAllActivePromotions() {
-        return promotionRepository.findValidVouchers().stream()
+        // Truyền thẳng giờ thực tế của Java xuống DB để tránh lệch múi giờ
+        return promotionRepository.findValidVouchers(java.time.LocalDateTime.now()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
