@@ -149,6 +149,13 @@ public class OrderService {
 
         for (CartItem cartItem : cart.getItems()) {
             ProductVariant variant = cartItem.getVariant();
+            
+            if (!Boolean.TRUE.equals(variant.getStatus()) || 
+                (variant.getProduct() != null && !Boolean.TRUE.equals(variant.getProduct().getStatus()))) {
+                String pName = variant.getProduct() != null ? variant.getProduct().getProductName() : "Một sản phẩm";
+                throw new BadRequestException("Sản phẩm '" + pName + "' hiện đã ngừng kinh doanh. Vui lòng xóa khỏi giỏ hàng.");
+            }
+
             BigDecimal originalPrice = variant.getPrice();
 
             Promotion itemPromo = promotionRepository.findActivePromotionForVariant(variant.getVariantId()).orElse(null);
