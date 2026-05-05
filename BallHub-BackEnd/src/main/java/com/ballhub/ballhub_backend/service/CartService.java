@@ -54,7 +54,11 @@ public class CartService {
         Cart cart = getOrCreateCart(userId);
 
         ProductVariant variant = variantRepository.findByVariantIdAndStatusTrue(request.getVariantId())
-                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại hoặc đã ngừng kinh doanh"));
+
+        if (variant.getProduct() != null && !Boolean.TRUE.equals(variant.getProduct().getStatus())) {
+            throw new BadRequestException("Sản phẩm này hiện đã ngừng kinh doanh");
+        }
 
         int currentQuantityInCart = 0;
         if (cart.getItems() != null) {
