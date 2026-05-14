@@ -141,5 +141,15 @@
 
         </plugins>
     </build>
-
+    <profiles>
+        <profile>
+            <id>production</id>
+            <build>
+                <plugins>
+                    <!-- You can add prod-specific plugins here later -->
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+         
 </project>
